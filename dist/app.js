@@ -5,7 +5,7 @@ dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog
 const notch=document.querySelector('#notch');
 const toggle=document.querySelector('#notch-toggle');
 let hoverBlocked=false;
-function setExpanded(value){notch.classList.toggle('expanded',value);toggle.setAttribute('aria-expanded',String(value));document.querySelector('#notch-content').inert=!value;document.querySelector('#close-hint').textContent=value?'esc to close':'open';if(!value)hoverBlocked=true;}
+function setExpanded(value){notch.classList.toggle('expanded',value);toggle.setAttribute('aria-expanded',String(value));document.querySelector('#notch-content').inert=!value;document.querySelector('#close-hint').textContent=value?'esc':'open';if(!value)hoverBlocked=true;}
 notch.addEventListener('pointerleave',()=>{hoverBlocked=false;});
 toggle.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse'&&!hoverBlocked)setExpanded(true);});
 toggle.addEventListener('click',()=>setExpanded(!notch.classList.contains('expanded')));
