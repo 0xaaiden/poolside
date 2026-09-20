@@ -1,4 +1,13 @@
 import Foundation
+import CoreGraphics
+
+func topAnchoredFrame(start: CGSize, end: CGSize, top: CGFloat, centerX: CGFloat, progress: Double) -> CGRect {
+    let p = min(1, max(0, progress))
+    let eased = CGFloat(1 - pow(1 - p, 3))
+    let width = start.width + (end.width - start.width) * eased
+    let height = start.height + (end.height - start.height) * eased
+    return CGRect(x: centerX - width / 2, y: top - height, width: width, height: height)
+}
 
 /// Physical-pointer gate: layout-generated hover events cannot rearm a dismissed notch.
 struct HoverGate {

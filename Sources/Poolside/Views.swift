@@ -68,7 +68,7 @@ struct IslandView: View {
     let topHeight: CGFloat
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     var width: CGFloat { max(400, cameraWidth + 160) }
-    var bodyHeight: CGFloat { store.onboarding ? 326 : store.selected != nil ? 430 : 320 }
+    var bodyHeight: CGFloat { store.onboarding ? 326 : store.selected != nil ? 410 : 300 }
     private func toggle() { store.expand(!store.expanded) }
     var body: some View {
         VStack(spacing: 0) {
@@ -95,9 +95,10 @@ struct IslandView: View {
                         DetailView(store: store, p: p).id(id).transition(.opacity.combined(with: .offset(x: reduceMotion ? 0 : 8)))
                     } else { Dashboard(store: store).transition(.opacity.combined(with: .offset(x: reduceMotion ? 0 : -8))) }
                 }.frame(width: width, height: bodyHeight, alignment: .top).background(surface)
-                    .transition(.opacity.combined(with: .offset(y: reduceMotion ? 0 : -8)))
+                    .transition(.identity)
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea()
             .background(store.expanded ? surface : .black)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: store.expanded ? 20 : 13, bottomTrailingRadius: store.expanded ? 20 : 13))
             .preferredColorScheme(store.scheme).tint(.primary).buttonStyle(QuietButton())
@@ -135,8 +136,10 @@ struct Dashboard: View {
             HStack(spacing: 6) {
                 Text(store.demo ? "Liquidity · example" : "Liquidity").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
                 Spacer()
+                RefreshControl(store: store)
                 IconButton(symbol: "slider.horizontal.3", label: "Wallet and appearance") { store.settings() }
             }.padding(.bottom, 8)
+            DataNotice(store: store)
             HStack(alignment: .firstTextBaseline) {
                 Text(ready ? money(store.pooled) : "—").font(.system(size: 30, weight: .regular)).tracking(-1.1).monospacedDigit()
                     .contentTransition(.numericText()).animation(reduceMotion ? nil : .smooth(duration: 0.35), value: store.pooled)
@@ -173,7 +176,6 @@ struct Dashboard: View {
                     }
                 }
             }.scrollIndicators(.hidden).frame(maxHeight: .infinity)
-            Footer(store: store).padding(.top, 8)
         }.padding(.horizontal, 20).padding(.top, 11).padding(.bottom, 13)
     }
 }
@@ -286,25 +288,24 @@ struct RangeBar: View {
             .help("Highlighted band: your LP range. Marker: current price. Axis includes 50% extra range width on each side and expands for out-of-range prices.")
     }
 }
-struct Footer: View {
+struct RefreshControl: View {
     @ObservedObject var store: Store
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let error = store.error { Text(error).font(.system(size: 9)).foregroundStyle(loss).lineLimit(2).help(error) }
-            HStack(spacing: 5) {
-                Circle().fill(store.error != nil ? loss : Color.primary.opacity(0.3)).frame(width: 3, height: 3)
-                if store.demo { Text("Saved example · Sep 20") }
-                else if let date = store.sourceDate {
-                    TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text("\(context.date.timeIntervalSince(date) > 300 ? "Stale · " : "")Last updated \(date.formatted(date: context.date.timeIntervalSince(date) > 86400 ? .abbreviated : .omitted, time: .shortened))")
-                    }
-                } else { Text("Last updated —") }
-                Spacer()
-                if store.loading { ProgressView().controlSize(.mini).scaleEffect(0.65).frame(width: 14, height: 14) }
-                else if store.demo { Button("Use wallet") { store.settings() } }
-                else { Button { store.refresh() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 9)).frame(width: 18, height: 14) }.help("Refresh positions").accessibilityLabel("Refresh positions") }
-            }.font(.system(size: 9)).foregroundStyle(.tertiary)
+        if !store.demo {
+            if store.loading { ProgressView().controlSize(.mini).scaleEffect(0.7).frame(width: 25, height: 25) }
+            else {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    let stale = store.sourceDate.map { context.date.timeIntervalSince($0) > 300 } ?? false
+                    IconButton(symbol: stale ? "clock.badge.exclamationmark" : "arrow.clockwise", label: "Refresh positions. " + (store.sourceDate.map { "Last updated " + $0.formatted(date: .abbreviated, time: .shortened) } ?? "No update yet")) { store.refresh() }
+                }
+            }
         }
+    }
+}
+struct DataNotice: View {
+    @ObservedObject var store: Store
+    var body: some View {
+        if let error = store.error { Text(error).font(.system(size: 9)).foregroundStyle(loss).lineLimit(2).help(error).padding(.bottom, 8) }
     }
 }
 struct DetailView: View {
@@ -316,7 +317,9 @@ struct DetailView: View {
                 Button { store.selected = nil } label: { HStack(spacing: 5) { Image(systemName: "chevron.left").font(.system(size: 9)); Text("Positions").font(.system(size: 10)) } }.foregroundStyle(.secondary)
                 Spacer()
                 Text("#\(p.nft_id.map(String.init) ?? "—")").font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                RefreshControl(store: store)
             }.padding(.bottom, 18)
+            DataNotice(store: store)
             ScrollView {
                 VStack(alignment: .leading, spacing: 15) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -365,7 +368,6 @@ struct DetailView: View {
                     Text("Autocompounding \(p.autocompounding == true ? "on" : p.autocompounding == false ? "off" : "unknown")").font(.system(size: 9)).foregroundStyle(.tertiary)
                 }.padding(.bottom, 10)
             }.scrollIndicators(.hidden)
-            Footer(store: store).padding(.top, 10)
         }.padding(20)
     }
     func metric(_ label: String, _ value: String, trailing: Bool = false, color: Color = .primary) -> some View {

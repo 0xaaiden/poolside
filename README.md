@@ -36,13 +36,13 @@ The machine also selects an SDK newer than its compiler supports. Both scripts w
 
 ## Prototype boundaries
 
-API decoding is verified against the two supplied Uniswap v4 positions. Other protocols may have different identity/schema requirements. One tracked wallet, active positions only, one automatically selected screen. No chart history, persistent response cache, alerts, launch at login, custom shortcuts, fiat conversion, transaction actions, or closed-position browsing yet. Hover expands and remains open until collapsed intentionally. The compact panel animates its size over 300 ms; navigation, benchmark selection, number updates, range markers and hover feedback have restrained transitions. Motion is disabled when macOS Reduce Motion is enabled. Large text/accessibility and physical-notch/full-screen behavior need testing across real hardware configurations.
+API decoding is verified against the two supplied Uniswap v4 positions. Other protocols may have different identity/schema requirements. One tracked wallet, active positions only, one automatically selected screen. No chart history, persistent response cache, alerts, launch at login, custom shortcuts, fiat conversion, transaction actions, or closed-position browsing yet. Hover expands and remains open until collapsed intentionally. The compact panel animates its size over 280 ms; navigation, benchmark selection, number updates, range markers and hover feedback have restrained transitions. Motion is disabled when macOS Reduce Motion is enabled. Large text/accessibility and physical-notch/full-screen behavior need testing across real hardware configurations.
 
 The [API/product analysis](docs/API-and-product-analysis.md) separates observed fields, inferred semantics, and production work still required.
 
 ## Compact redesign
 
-The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay. Dismissal is guarded by the physical cursor position in a fixed screen-space header region, so resize-generated hover events cannot reopen it. The pointer must leave and re-enter before hover is armed again.
+The expanded overview is 400 × 332 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 442 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay. Dismissal is guarded by the physical cursor position in a fixed screen-space header region, so resize-generated hover events cannot reopen it. The pointer must leave and re-enter before hover is armed again.
 
 ## Range context and icons
 
@@ -55,3 +55,9 @@ The dark surface is pure black to join the camera strip. The native window shado
 ## Wallet identity and financial colors
 
 The header uses a local native port of blo’s Ethereum blockies algorithm and a shortened wallet address. See THIRD_PARTY_NOTICES.md for upstream attribution and license. No ENS name is inferred. Unclaimed fees are green; P&L and pool P&L use green for positive, red for negative, and neutral for zero or unavailable values. The fee label remains unclaimed because the displayed value is pending fees, not fees already collected.
+
+## Top-edge expansion
+
+A single native resize driver preserves the screen’s top edge on every frame; the panel opens downward. SwiftUI does not independently animate the expansion layout, and the content ignores automatic safe-area insets. Interrupted transitions restart from the current panel dimensions. Reduce Motion still applies.
+
+The bottom footer has been removed. Manual refresh and last-update information are available in the header control; stale data changes its icon. Fetch failures remain visible inline.

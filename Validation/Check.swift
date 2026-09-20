@@ -26,6 +26,16 @@ import Foundation
         assert(RevertClient.valid(RevertClient.sampleWallet))
         assert(!RevertClient.valid("0x123"))
         assert(!RevertClient.valid("0x" + String(repeating: "g", count: 40)))
+        for top in [CGFloat(900), 0, -900] {
+            for progress in stride(from: 0.0, through: 1.0, by: 0.01) {
+                let rect = topAnchoredFrame(start: CGSize(width: 340, height: 36), end: CGSize(width: 400, height: 332), top: top, centerX: -200, progress: progress)
+                assert(abs(rect.maxY - top) < 0.000001)
+                assert(abs(rect.midX - (-200)) < 0.000001)
+                assert(rect.height >= 36 && rect.height <= 332)
+                let closing = topAnchoredFrame(start: CGSize(width: 400, height: 332), end: CGSize(width: 340, height: 36), top: top, centerX: 200, progress: progress)
+                assert(abs(closing.maxY - top) < 0.000001)
+            }
+        }
         var hover = HoverGate()
         assert(!hover.update(inside: true, now: 0))
         assert(hover.update(inside: true, now: 0.2))

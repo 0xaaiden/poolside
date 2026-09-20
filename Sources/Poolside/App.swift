@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import QuartzCore
 
 @MainActor final class Store: ObservableObject {
     @Published var positions: [Position] = []
@@ -33,7 +32,10 @@ import QuartzCore
     func expand(_ value: Bool) {
         if !value { didDismiss?() }
         guard expanded != value else { resize?(); return }
-        withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { expanded = value }
+        // The window owns expansion. A second SwiftUI layout animation shifts the content.
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { expanded = value }
         resize?()
     }
     func loadDemo() {
@@ -84,6 +86,8 @@ import QuartzCore
 final class IslandPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    // This panel intentionally occupies the menu-bar/notch area, outside visibleFrame.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = Store()
@@ -94,6 +98,7 @@ final class IslandPanel: NSPanel {
     var escapeMonitor: Any?
     var hoverGate = HoverGate()
     var hoverPoll: Task<Void, Never>?
+    var frameAnimation: Task<Void, Never>?
     var screen: NSScreen { NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main ?? NSScreen.screens[0] }
     var cameraWidth: CGFloat {
         if let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea { return r.minX - l.maxX }
@@ -140,7 +145,7 @@ final class IslandPanel: NSPanel {
     func layout(animated: Bool = false) {
         let top = max(32, screen.safeAreaInsets.top)
         let width: CGFloat = store.expanded ? max(400, cameraWidth + 160) : cameraWidth + 180
-        let bodyHeight: CGFloat = store.onboarding ? 326 : store.selected != nil ? 430 : 320
+        let bodyHeight: CGFloat = store.onboarding ? 326 : store.selected != nil ? 410 : 300
         let height: CGFloat = store.expanded ? bodyHeight + top : top + 4
         if hosting == nil {
             let view = NSHostingView(rootView: IslandView(store: store, cameraWidth: cameraWidth, topHeight: top))
@@ -150,17 +155,27 @@ final class IslandPanel: NSPanel {
             hosting?.rootView = IslandView(store: store, cameraWidth: cameraWidth, topHeight: top)
         }
         let frame = NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
+        frameAnimation?.cancel()
         if animated && !store.reduceMotion {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.30
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.8, 0.28, 1)
-                panel.animator().setFrame(frame, display: true)
+            let start = panel.frame.size
+            let topEdge = screen.frame.maxY, center = screen.frame.midX
+            let began = ProcessInfo.processInfo.systemUptime
+            frameAnimation = Task { [weak self] in
+                while !Task.isCancelled {
+                    guard let self else { return }
+                    let progress = min(1, (ProcessInfo.processInfo.systemUptime - began) / 0.28)
+                    let rect = topAnchoredFrame(start: start, end: frame.size, top: topEdge, centerX: center, progress: progress)
+                    self.panel.setFrame(rect, display: true)
+                    if progress >= 1 { return }
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
             }
         } else { panel.setFrame(frame, display: true) }
         if store.expanded { panel.makeKey() } else { panel.resignKey() }
     }
     func applicationWillTerminate(_ notification: Notification) {
         hoverPoll?.cancel()
+        frameAnimation?.cancel()
         if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
     }
     @objc func show() { store.expand(true); panel.makeKeyAndOrderFront(nil) }

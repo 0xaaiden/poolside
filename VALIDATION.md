@@ -24,3 +24,7 @@ Range validation passed for normal padding, prices above and below LP bounds, ze
 ## Dismissal regression and wallet identity
 
 Verified a close-control click remains collapsed with the cursor left over the notch. HoverGate regression tests cover a stationary cursor for 60 seconds, leaving and re-entering, the 180 ms entry delay, and repeated dismissal. WalletIconData matches upstream blo JavaScript pixel and HSL palette reference vectors for the example wallet; capitalization is normalized and different addresses produce different output. Native screenshot inspected for identicon/short address, green unclaimed fees, and positive P&L coloring.
+
+## Top-anchor / footer regression
+
+Opening and closing frame interpolation tests verify a constant top edge and horizontal center at 101 progress values on positive, zero, and negative screen origins. Native app checked for collapse/reopen, no footer, and working header refresh. The window frame constraint override prevents menu-bar safe-area displacement; SwiftUI expansion layout animation was removed.
