@@ -1,10 +1,12 @@
 .DS_Store
 .build/
 .swiftpm/
+.sites-runtime/
 DerivedData/
 *.xcuserstate
 xcuserdata/
 *.app/
 *.zip
+!dist/assets/Poolside-macOS.zip
 .env
 .env.*

@@ -2,6 +2,23 @@
 
 A native macOS notch prototype for read-only Revert position analytics. SwiftUI interface, AppKit panel, no third-party dependencies. Requires macOS 14+. The included app build targets Apple silicon.
 
+## Repository layout
+
+- `Sources/Poolside/` — native macOS app.
+- `Validation/` — native validation checks.
+- `dist/` — complete Last Light landing page, fonts, artwork, and beta download.
+- `design/` — design explorations, generation prompts, and source artwork.
+- `docs/` — API and product analysis.
+- `.openai/hosting.json` — existing Sites deployment identity.
+
+The working checkout is `/Users/aiden/Desktop/Poolside`. Both the app and landing-page commit histories are retained.
+
+## Landing page
+
+Serve locally with `python3 -m http.server 5178 --directory dist`, then open http://localhost:5178. No package installation or build is needed. The current page is deployed at https://poolside-last-light.azizaiden.chatgpt.site.
+
+The interactive preview uses illustrative data. Download buttons serve the bundled early macOS beta, with compatibility and notarization status disclosed before download.
+
 ## Run
 
 Build with `bash build.sh`, then open **Poolside.app** in the parent folder. The app sits at the top of the display; its menu-bar icon provides Show, Wallet & appearance, and Quit.
