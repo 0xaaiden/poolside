@@ -1,10 +1,10 @@
-# Luma LP
+# Poolside
 
 A native macOS notch prototype for read-only Revert position analytics. SwiftUI interface, AppKit panel, no third-party dependencies. Requires macOS 14+. The included app build targets Apple silicon.
 
 ## Run
 
-Build with `bash build.sh`, then open **Luma LP.app** in the parent folder. The app sits at the top of the display; its menu-bar icon provides Show, Wallet & appearance, and Quit.
+Build with `bash build.sh`, then open **Poolside.app** in the parent folder. The app sits at the top of the display; its menu-bar icon provides Show, Wallet & appearance, and Quit.
 
 1. Continue through onboarding, enter a public 0x wallet address, and select System, Light, or Dark.
 2. Alternatively, choose **Explore the saved example** for an explicitly labeled offline snapshot of the supplied wallet.
@@ -22,7 +22,7 @@ bash validate.sh
 
 Open Package.swift in Xcode for development. `swift build` is also supported on a healthy Swift 6 toolchain. On the development machine, swift-package failed to launch because of a missing BuildServerProtocol symbol; build.sh uses swiftc directly and packages an ad-hoc-signed app. This is a local development build, not a notarized distribution.
 
-The machine also selects an SDK newer than its compiler supports. Both scripts were successfully run with `LUMA_SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` prefixed to the command. This selects a compatible installed SDK without changing system settings.
+The machine also selects an SDK newer than its compiler supports. Both scripts were successfully run with `POOLSIDE_SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` prefixed to the command. This selects a compatible installed SDK without changing system settings.
 
 ## Implemented
 

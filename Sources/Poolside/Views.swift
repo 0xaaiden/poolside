@@ -85,7 +85,7 @@ struct IslandView: View {
                         if store.expanded { Text("esc to close").font(.system(size: 9)).foregroundStyle(.white.opacity(0.38)) }
                         else { Text(store.error != nil ? "stale" : store.onboarding ? "set up" : money(store.pnl, signed: true)).font(.system(size: 10, weight: .medium)).monospacedDigit().foregroundStyle(store.error != nil ? loss : tone(store.pnl)) }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
-                    }.accessibilityLabel(store.expanded ? "Collapse Luma" : "Expand Luma")
+                    }.accessibilityLabel(store.expanded ? "Collapse Poolside" : "Expand Poolside")
                 }.foregroundStyle(.white.opacity(0.7)).frame(height: topHeight + (store.expanded ? 0 : 4)).background(.black)
                 .buttonStyle(.plain)
             if store.expanded {
@@ -427,7 +427,7 @@ struct Onboarding: View {
                     else if store.step < 2 { withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) { store.step += 1 } }
                     else { store.connect() }
                 } label: {
-                    HStack(spacing: 8) { Text(store.step == 2 ? "Open Luma" : "Continue"); Image(systemName: "arrow.right").font(.system(size: 9)) }
+                    HStack(spacing: 8) { Text(store.step == 2 ? "Open Poolside" : "Continue"); Image(systemName: "arrow.right").font(.system(size: 9)) }
                         .padding(.horizontal, 13).padding(.vertical, 9).background(.primary.opacity(0.07), in: Capsule())
                 }
             }.font(.system(size: 11, weight: .medium))

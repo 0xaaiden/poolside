@@ -1,4 +1,4 @@
-# Luma LP — Revert API and product design
+# Poolside — Revert API and product design
 
 ## What the example actually returns
 
@@ -71,7 +71,7 @@ Pool prices are ratios from the pool; token USD quotes may differ. Do not recons
 
 ## Product and visual direction
 
-**Working name: Luma LP.** A focused liquidity companion with three levels of information:
+**Working name: Poolside.** A focused liquidity companion with three levels of information:
 
 - **Collapsed:** black camera strip, position count on one side and benchmark P&L on the other. Stale/error status takes priority. Keep the camera’s center unobstructed.
 - **Expanded:** pooled balance, unclaimed fees, lifetime P&L benchmark selector, and position cards with network, pool fee, P&L and range marker. Source freshness stays visible.

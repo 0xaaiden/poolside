@@ -128,9 +128,9 @@ final class IslandPanel: NSPanel {
             return nil
         }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        status.button?.image = NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: "Luma LP")
+        status.button?.image = NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: "Poolside")
         let menu = NSMenu()
-        for (title, action, key) in [("Show Luma LP", #selector(show), ""), ("Wallet & appearance…", #selector(settings), ","), ("Quit Luma LP", #selector(quit), "q")] {
+        for (title, action, key) in [("Show Poolside", #selector(show), ""), ("Wallet & appearance…", #selector(settings), ","), ("Quit Poolside", #selector(quit), "q")] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item)
         }
         status.menu = menu
@@ -167,7 +167,7 @@ final class IslandPanel: NSPanel {
     @objc func settings() { store.settings(); panel.makeKeyAndOrderFront(nil) }
     @objc func quit() { NSApp.terminate(nil) }
 }
-@main struct LumaApp: App {
+@main struct PoolsideApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     var body: some Scene { Settings { EmptyView() } }
 }
