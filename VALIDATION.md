@@ -28,3 +28,7 @@ Verified a close-control click remains collapsed with the cursor left over the n
 ## Top-anchor / footer regression
 
 Opening and closing frame interpolation tests verify a constant top edge and horizontal center at 101 progress values on positive, zero, and negative screen origins. Native app checked for collapse/reopen, no footer, and working header refresh. The window frame constraint override prevents menu-bar safe-area displacement; SwiftUI expansion layout animation was removed.
+
+## Running-build verification and reveal refinement
+
+Found both the legacy Luma LP executable and Poolside running; quit the legacy copy and restarted Poolside. Process inspection confirmed only Poolside remained. The active native app shows no footer. Verified collapse/reopen and full content visibility with the mounted-content reveal. Compilation and signing passed.

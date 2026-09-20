@@ -11,6 +11,7 @@ import AppKit
     @Published var onboarding = UserDefaults.standard.string(forKey: "wallet") == nil
     @Published var step = 0
     @Published var expanded = true
+    @Published var revealProgress: CGFloat = 1
     @Published var selected: String? { didSet { resize?() } }
     @Published var benchmark = "usd"
     @Published var theme = UserDefaults.standard.string(forKey: "theme") ?? "system" {
@@ -158,19 +159,26 @@ final class IslandPanel: NSPanel {
         frameAnimation?.cancel()
         if animated && !store.reduceMotion {
             let start = panel.frame.size
+            let startReveal = store.revealProgress
+            let endReveal: CGFloat = store.expanded ? 1 : 0
             let topEdge = screen.frame.maxY, center = screen.frame.midX
             let began = ProcessInfo.processInfo.systemUptime
             frameAnimation = Task { [weak self] in
                 while !Task.isCancelled {
                     guard let self else { return }
-                    let progress = min(1, (ProcessInfo.processInfo.systemUptime - began) / 0.28)
+                    let progress = min(1, (ProcessInfo.processInfo.systemUptime - began) / 0.34)
                     let rect = topAnchoredFrame(start: start, end: frame.size, top: topEdge, centerX: center, progress: progress)
+                    let eased = CGFloat(1 - pow(1 - progress, 3))
+                    self.store.revealProgress = startReveal + (endReveal - startReveal) * eased
                     self.panel.setFrame(rect, display: true)
                     if progress >= 1 { return }
                     try? await Task.sleep(for: .milliseconds(16))
                 }
             }
-        } else { panel.setFrame(frame, display: true) }
+        } else {
+            store.revealProgress = store.expanded ? 1 : 0
+            panel.setFrame(frame, display: true)
+        }
         if store.expanded { panel.makeKey() } else { panel.resignKey() }
     }
     func applicationWillTerminate(_ notification: Notification) {

@@ -36,7 +36,7 @@ The machine also selects an SDK newer than its compiler supports. Both scripts w
 
 ## Prototype boundaries
 
-API decoding is verified against the two supplied Uniswap v4 positions. Other protocols may have different identity/schema requirements. One tracked wallet, active positions only, one automatically selected screen. No chart history, persistent response cache, alerts, launch at login, custom shortcuts, fiat conversion, transaction actions, or closed-position browsing yet. Hover expands and remains open until collapsed intentionally. The compact panel animates its size over 280 ms; navigation, benchmark selection, number updates, range markers and hover feedback have restrained transitions. Motion is disabled when macOS Reduce Motion is enabled. Large text/accessibility and physical-notch/full-screen behavior need testing across real hardware configurations.
+API decoding is verified against the two supplied Uniswap v4 positions. Other protocols may have different identity/schema requirements. One tracked wallet, active positions only, one automatically selected screen. No chart history, persistent response cache, alerts, launch at login, custom shortcuts, fiat conversion, transaction actions, or closed-position browsing yet. Hover expands and remains open until collapsed intentionally. The compact panel animates its size over 340 ms; navigation, benchmark selection, number updates, range markers and hover feedback have restrained transitions. Motion is disabled when macOS Reduce Motion is enabled. Large text/accessibility and physical-notch/full-screen behavior need testing across real hardware configurations.
 
 The [API/product analysis](docs/API-and-product-analysis.md) separates observed fields, inferred semantics, and production work still required.
 
@@ -61,3 +61,7 @@ The header uses a local native port of blo’s Ethereum blockies algorithm and a
 A single native resize driver preserves the screen’s top edge on every frame; the panel opens downward. SwiftUI does not independently animate the expansion layout, and the content ignores automatic safe-area insets. Interrupted transitions restart from the current panel dimensions. Reduce Motion still applies.
 
 The bottom footer has been removed. Manual refresh and last-update information are available in the header control; stale data changes its icon. Fetch failures remain visible inline.
+
+## Roll-down refinement
+
+The panel’s contents stay mounted through opening and closing. A single reveal progress value coordinates native resizing, a subtle 24-point downward slide from behind the camera strip, opacity and bottom corner rounding over 340 ms. The hosting geometry explicitly aligns the full content at the top, preventing implicit vertical centering during resize. Reduce Motion skips the reveal.

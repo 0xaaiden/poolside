@@ -71,6 +71,7 @@ struct IslandView: View {
     var bodyHeight: CGFloat { store.onboarding ? 326 : store.selected != nil ? 410 : 300 }
     private func toggle() { store.expand(!store.expanded) }
     var body: some View {
+        GeometryReader { geometry in
         VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     Button(action: toggle) {
@@ -87,24 +88,25 @@ struct IslandView: View {
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
                     }.accessibilityLabel(store.expanded ? "Collapse Poolside" : "Expand Poolside")
                 }.foregroundStyle(.white.opacity(0.7)).frame(height: topHeight + (store.expanded ? 0 : 4)).background(.black)
+                .zIndex(1)
                 .buttonStyle(.plain)
-            if store.expanded {
                 ZStack(alignment: .top) {
                     if store.onboarding { Onboarding(store: store).transition(.opacity.combined(with: .offset(y: reduceMotion ? 0 : 5))) }
                     else if let id = store.selected, let p = store.positions.first(where: { $0.id == id }) {
                         DetailView(store: store, p: p).id(id).transition(.opacity.combined(with: .offset(x: reduceMotion ? 0 : 8)))
                     } else { Dashboard(store: store).transition(.opacity.combined(with: .offset(x: reduceMotion ? 0 : -8))) }
                 }.frame(width: width, height: bodyHeight, alignment: .top).background(surface)
-                    .transition(.identity)
-            }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .ignoresSafeArea()
-            .background(store.expanded ? surface : .black)
-            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: store.expanded ? 20 : 13, bottomTrailingRadius: store.expanded ? 20 : 13))
+                    .offset(y: reduceMotion ? 0 : -24 * (1 - store.revealProgress))
+                    .opacity(store.revealProgress)
+                    .allowsHitTesting(store.expanded && store.revealProgress > 0.95)
+                    .accessibilityHidden(!store.expanded)
+        }.frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+            .background(surface)
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 13 + 7 * store.revealProgress, bottomTrailingRadius: 13 + 7 * store.revealProgress))
             .preferredColorScheme(store.scheme).tint(.primary).buttonStyle(QuietButton())
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.selected)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.onboarding)
-
+        }.ignoresSafeArea()
     }
 }
 struct BenchmarkSwitch: View {
