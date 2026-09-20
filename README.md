@@ -1,0 +1,45 @@
+# Luma LP
+
+A native macOS notch prototype for read-only Revert position analytics. SwiftUI interface, AppKit panel, no third-party dependencies. Requires macOS 14+. The included app build targets Apple silicon.
+
+## Run
+
+Build with `bash build.sh`, then open **Luma LP.app** in the parent folder. The app sits at the top of the display; its menu-bar icon provides Show, Wallet & appearance, and Quit.
+
+1. Continue through onboarding, enter a public 0x wallet address, and select System, Light, or Dark.
+2. Alternatively, choose **Explore the saved example** for an explicitly labeled offline snapshot of the supplied wallet.
+3. Click a position for its range, balances, P&L, ROI, fee APR, and pool ID.
+4. Click the black top strip or the minus control to collapse; hover the strip to expand.
+
+The wallet address is sent only to api.revert.finance when using live mode. Address and appearance preferences persist locally in UserDefaults. No keys, wallet signing, transactions, analytics, or third-party token images are involved.
+
+## Build and validate
+
+```sh
+bash build.sh
+bash validate.sh
+```
+
+Open Package.swift in Xcode for development. `swift build` is also supported on a healthy Swift 6 toolchain. On the development machine, swift-package failed to launch because of a missing BuildServerProtocol symbol; build.sh uses swiftc directly and packages an ad-hoc-signed app. This is a local development build, not a notarized distribution.
+
+The machine also selects an SDK newer than its compiler supports. Both scripts were successfully run with `LUMA_SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` prefixed to the command. This selects a compatible installed SDK without changing system settings.
+
+## Implemented
+
+- Camera-aware top panel, menu-bar fallback controls, automatic display geometry updates.
+- Three-step onboarding; System/Light/Dark preference; saved wallet; labeled offline example.
+- Active positions endpoint with v4 and Ekubo flags, cursor pagination, duplicate suppression, pagination loop guard.
+- Decimal arithmetic, string/number decoding, optional metrics rendered as unavailable.
+- Pooled assets separate from unclaimed fees; lifetime USD and vs-HOLD P&L.
+- Position detail, range indicator, source timestamp, stale marker, retry button, preserved in-memory data on failed refresh.
+- 60-second polling; 180-second delay following errors; explicit empty and loading states.
+
+## Prototype boundaries
+
+API decoding is verified against the two supplied Uniswap v4 positions. Other protocols may have different identity/schema requirements. One tracked wallet, active positions only, one automatically selected screen. No chart history, persistent response cache, alerts, launch at login, custom shortcuts, fiat conversion, transaction actions, or closed-position browsing yet. Hover expands and remains open until collapsed intentionally. The compact panel animates its size over 300 ms; navigation, benchmark selection, number updates, range markers and hover feedback have restrained transitions. Motion is disabled when macOS Reduce Motion is enabled. Large text/accessibility and physical-notch/full-screen behavior need testing across real hardware configurations.
+
+The [API/product analysis](docs/API-and-product-analysis.md) separates observed fields, inferred semantics, and production work still required.
+
+## Compact redesign
+
+The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a small tick-based range graphic replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay; explicit collapse stays closed until the pointer leaves and re-enters.
