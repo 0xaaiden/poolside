@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 @main struct Check {
     static func main() throws {
@@ -7,11 +8,21 @@ import Foundation
         let positions = try require(e.data)
         assert(e.success && positions.count == 2)
         assert(Set(positions.map(\.id)).count == 2)
-        assert(number(total(positions.map { $0.underlying_value?.value })) == "1,867.45")
-        assert(number(total(positions.map(\.unclaimed))) == "140.71")
-        assert(number(total(positions.map { $0.performance?["usd"]?.pnl?.value })) == "119.69")
-        assert(number(total(positions.map { $0.performance?["hodl"]?.pnl?.value })) == "143.50")
+        assert(number(total(positions.map { $0.underlying_value?.value }).value) == "1,867.45")
+        assert(number(total(positions.map(\.unclaimed)).value) == "140.71")
+        assert(number(total(positions.map { $0.performance?["usd"]?.pnl?.value }).value) == "119.69")
+        assert(number(total(positions.map { $0.performance?["hodl"]?.pnl?.value }).value) == "143.50")
+        let totals = Totals(positions)
+        assert(totals.pooled == Sum(value: total(positions.map { $0.underlying_value?.value }).value, complete: true))
+        assert(number(totals.fees.value) == "140.71" && number(totals.pnl["usd"]?.value) == "119.69" && number(totals.pnl["hodl"]?.value) == "143.50")
+        assert(Totals([]).pooled == Sum(value: 0, complete: true))
+        // Token lookup: exact, lowercased and mixed-case addresses resolve to the same token.
+        assert(positions[0].token(positions[0].token0.uppercased())?.symbol == positions[0].symbol0)
+        assert(positions[0].token(positions[0].token0)?.symbol == positions[0].symbol0)
+        assert(positions[0].token("0x0000000000000000000000000000000000000000") == nil)
         assert(positions.allSatisfy { $0.rangeFraction != nil && $0.rangeFraction! > 0 && $0.rangeFraction! < 1 })
+        assert(e.skipped == 0 && positions.allSatisfy { $0.inRange && $0.priceContext?.fullRange == false })
+        checkLenientDecoding(data)
         let context = try require(PriceRangeContext(lower: 100, upper: 200, current: 150))
         assert(context.domainLower == 50 && context.domainUpper == 250)
         assert(context.lowerFraction == 0.25 && context.upperFraction == 0.75 && context.currentFraction == 0.5)
@@ -21,42 +32,44 @@ import Foundation
         assert(above.currentFraction > above.upperFraction && above.currentFraction < 1)
         let nearZero = try require(PriceRangeContext(lower: 1, upper: 5, current: 0))
         assert(nearZero.domainLower == 0 && nearZero.currentFraction == 0)
+        // Uniswap full-range tick limits: no linear axis, band across the bar, marker centered, ∞ label.
+        let full = try require(PriceRangeContext(lower: 2.938956807614301e-39, upper: 3.4025678683306347e38, current: 0.25))
+        assert(full.fullRange && full.lowerFraction == 0 && full.upperFraction == 1 && full.currentFraction == 0.5)
+        assert(price(Decimal(full.domainUpper)) == "∞" && price(Decimal(full.domainLower)) == "0.000")
+        assert(price(Decimal(string: "1234.5678")) == "1,234.568" && price(nil) == "—")
+        assert(PriceRangeContext(lower: 0, upper: 10, current: 3)!.fullRange)
+        assert(!PriceRangeContext(lower: 0.5, upper: 2, current: 1)!.fullRange, "a 4× range is concentrated")
         assert(PriceRangeContext(lower: 1, upper: 1, current: 1) == nil)
         assert(PriceRangeContext(lower: 1, upper: 2, current: .infinity) == nil)
         assert(RevertClient.valid(RevertClient.sampleWallet))
         assert(!RevertClient.valid("0x123"))
         assert(!RevertClient.valid("0x" + String(repeating: "g", count: 40)))
-        for top in [CGFloat(900), 0, -900] {
-            for progress in stride(from: 0.0, through: 1.0, by: 0.01) {
-                let rect = topAnchoredFrame(start: CGSize(width: 340, height: 36), end: CGSize(width: 400, height: 332), top: top, centerX: -200, progress: progress)
-                assert(abs(rect.maxY - top) < 0.000001)
-                assert(abs(rect.midX - (-200)) < 0.000001)
-                assert(rect.height >= 36 && rect.height <= 332)
-                let closing = topAnchoredFrame(start: CGSize(width: 400, height: 332), end: CGSize(width: 340, height: 36), top: top, centerX: 200, progress: progress)
-                assert(abs(closing.maxY - top) < 0.000001)
-            }
-        }
-        var hover = HoverGate()
-        assert(!hover.update(inside: true, now: 0))
-        assert(hover.update(inside: true, now: 0.2))
-        hover.dismiss()
-        // Cursor stays over the fixed header while the window shrinks: never reopen.
-        assert(!hover.update(inside: true, now: 1))
-        assert(!hover.update(inside: true, now: 60))
-        assert(!hover.update(inside: false, now: 61))
-        assert(!hover.update(inside: true, now: 62))
-        assert(!hover.update(inside: true, now: 62.1))
-        assert(hover.update(inside: true, now: 62.2))
-        hover.dismiss()
-        assert(!hover.update(inside: true, now: 63))
+        try checkLicense()
+        try checkClosed(URL(fileURLWithPath: CommandLine.arguments[2]))
+        try checkWalletBook()
+        checkSpring()
+        checkMotion()
+        checkHover()
         let icon = WalletIconData(address: RevertClient.sampleWallet)
         // Reference vectors generated by the upstream blo JavaScript algorithm.
         assert(icon.pixels == [1,1,2,1,1,0,1,1,0,0,1,1,1,0,2,2,0,1,2,0,1,0,1,1,1,2,0,1,1,1,0,0])
         assert(icon.palette == [[322,59,39],[238,83,55],[279,47,52]])
         assert(icon == WalletIconData(address: RevertClient.sampleWallet.uppercased()))
         assert(icon != WalletIconData(address: "0x0000000000000000000000000000000000000001"))
-        assert(total([Decimal(1), nil]) == nil)
+        // Partial sums keep the available figure and flag it instead of blanking the total.
+        assert(total([Decimal(1), nil]) == Sum(value: 1, complete: false))
+        assert(total([nil, nil]) == Sum(value: nil, complete: false))
+        assert(total([]) == Sum(value: 0, complete: true))
+        assert(total([Decimal(2), Decimal(3)]) == Sum(value: 5, complete: true))
+        assert(money(Sum(value: 5, complete: false)) == "≈$5.00")
+        assert(money(Sum(value: -5, complete: false), signed: true) == "≈−$5.00")
+        assert(money(Sum(value: 5, complete: true), signed: true) == "+$5.00")
+        assert(money(Sum(value: nil, complete: false)) == "—")
         assert(money(nil) == "—")
+        // Cached formatters produce the same output on repeated and mixed-precision calls.
+        assert(number(Decimal(string: "1234.5")) == "1,234.50")
+        assert(number(Decimal(1), digits: 3) == "1.000" && number(Decimal(1), digits: 3) == "1.000")
+        assert(number(Decimal(string: "1234.5")) == "1,234.50")
         for value in ["\"1.125\"", "1.125"] {
             let amount = try JSONDecoder().decode(Amount.self, from: Data(value.utf8))
             assert(amount.value == Decimal(string: "1.125"))
@@ -71,9 +84,265 @@ import Foundation
         assert(missing.data![0].underlying_value == nil)
         assert(missing.data![0].performance == nil)
         assert(missing.data![0].unclaimed == nil)
+        let partial = Totals(missing.data!)
+        assert(!partial.pooled.complete && partial.pooled.value == positions[1].underlying_value?.value)
+        assert(!partial.pnl["usd"]!.complete && partial.pnl["usd"]!.value == positions[1].performance?["usd"]?.pnl?.value)
         let url = try RevertClient.url(wallet: RevertClient.sampleWallet, cursor: "1789447492_2726168")
         assert(URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!.contains(URLQueryItem(name: "cursor", value: "1789447492_2726168")))
-        print("PASS: fixture decoding, exact totals, P&L benchmarks, mixed numeric types, missing fields, ranges, wallet validation, cursor encoding.")
+        print("PASS: fixture decoding, closed positions and realized totals, wallet book add/select/remove/migration, license signing/verification/expiry/tamper/persistence, entitlements, lenient integers and booleans, skipped rows, named decoding errors, full-range positions, exact totals, cached totals, partial sums, token lookup, P&L benchmarks, mixed numeric types, missing fields, ranges, spring motion, panel retargeting, hover gate, wallet validation, cursor encoding.")
+    }
+    /// Live Uniswap v3 rows differ from the v4 fixture: fee_tier is "100", and other protocols may
+    /// stringify further fields. One unreadable row is skipped and counted, never fatal.
+    static func checkLenientDecoding(_ data: Data) {
+        var json = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        var rows = json["data"] as! [[String: Any]]
+        rows[0]["fee_tier"] = "100"
+        rows[0]["nft_id"] = "92613"
+        rows[0]["in_range"] = "true"
+        rows[0]["exited"] = 0
+        rows[0]["autocompounding"] = "false"
+        rows[0]["now_ts"] = "1789934735"
+        rows[0]["price_lower"] = "2.938956807614301E-39"
+        rows[0]["price_upper"] = "3.4025678683306347E38"
+        rows[0]["underlying_value"] = "0E-26"
+        rows[1]["fee_tier"] = 3000.0
+        rows.append(["network": "unichain", "exchange": "mystery", "pool": "0x1", "token0": "0x2", "token1": "0x3", "tokens": [:], "fee_tier": "one percent"])
+        rows.append(["garbage": true])
+        json["data"] = rows
+        json["pagination"] = ["has_next": "false", "next_cursor": NSNull(), "total_count": "4"]
+        json["success"] = "true"
+        let e = try! RevertClient.decode(try! JSONSerialization.data(withJSONObject: json))
+        assert(e.success && e.skipped == 2 && e.data!.count == 2, "two undecodable rows skipped, decodable rows kept")
+        assert(!e.pagination!.has_next.value && e.pagination!.total_count == Whole(4))
+        let v3 = e.data![0]
+        assert(v3.fee_tier == Whole(100) && v3.nft_id == Whole(92613) && v3.inRange && v3.exited == Flag(false) && v3.autocompounding == Flag(false))
+        assert(v3.sourceTimestamp == 1789934735 && v3.underlying_value?.value == 0)
+        assert(v3.priceContext!.fullRange && v3.rangeFraction != nil)
+        assert(e.data![1].fee_tier == Whole(3000))
+        assert(v3.id.hasSuffix(":92613"))
+        // A malformed envelope names the offending path instead of the generic Foundation message.
+        var broken = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        broken["pagination"] = ["has_next": "maybe"]
+        do { _ = try RevertClient.decode(try! JSONSerialization.data(withJSONObject: broken)); assertionFailure("expected failure") }
+        catch RevertError.unsupported(let path) { assert(path == "pagination.has_next", path) }
+        catch { assertionFailure("unexpected \(error)") }
+        assert(RevertError.unsupported("pagination.has_next").localizedDescription.contains("‘pagination.has_next’"))
+        for (text, expected) in [("7", 7), ("7.0", 7), ("\"7\"", 7), ("\" 7 \"", 7)] {
+            assert(try! JSONDecoder().decode(Whole.self, from: Data(text.utf8)) == Whole(expected))
+        }
+        for text in ["7.5", "\"seven\"", "true"] { assert((try? JSONDecoder().decode(Whole.self, from: Data(text.utf8))) == nil) }
+        for (text, expected) in [("true", true), ("\"true\"", true), ("1", true), ("0", false), ("\"False\"", false)] {
+            assert(try! JSONDecoder().decode(Flag.self, from: Data(text.utf8)) == Flag(expected))
+        }
+        assert((try? JSONDecoder().decode(Flag.self, from: Data("\"maybe\"".utf8))) == nil)
+    }
+    static func checkClosed(_ url: URL) throws {
+        let e = try RevertClient.decode(try Data(contentsOf: url))
+        let closed = try require(e.data)
+        assert(e.skipped == 0 && closed.count == 2 && e.exited_count == Whole(2), "two Aerodrome positions on Base decode with no skips")
+        assert(closed.allSatisfy { $0.closed && $0.exchange == "aerodrome" && $0.network == "base" && $0.closedDate != nil && $0.openedDate != nil })
+        assert(closed.allSatisfy { $0.closedDate! > $0.openedDate! })
+        assert(closed.allSatisfy { $0.underlying_value?.value == 0 && $0.withdrawals_value!.value > 0 && $0.deposits_value!.value > 0 })
+        let totals = ClosedTotals(closed)
+        assert(money(totals.withdrawn) == "$143.68" && money(totals.collected) == "$13.97" && money(totals.pnl["usd"]!, signed: true) == "+$7.18", "\(money(totals.withdrawn)) \(money(totals.collected)) \(money(totals.pnl["usd"]!))")
+        assert(totals.pnl["hodl"] != nil && totals.pnl["eth"] != nil && totals.withdrawn.complete)
+        assert(ClosedTotals([]).withdrawn == Sum(value: 0, complete: true))
+        // Open positions are not closed, and closed positions never report a closing date when open.
+        let open = try require(try RevertClient.decode(try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))).data)
+        assert(open.allSatisfy { !$0.closed && $0.closedDate == nil && $0.openedDate != nil })
+        let url = try RevertClient.url(wallet: RevertClient.sampleWallet, active: false)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+        assert(items.contains(URLQueryItem(name: "active", value: "false")) && !items.contains(URLQueryItem(name: "active", value: "true")))
+        let openURL = try RevertClient.url(wallet: RevertClient.sampleWallet)
+        assert(URLComponents(url: openURL, resolvingAgainstBaseURL: false)!.queryItems!.contains(URLQueryItem(name: "active", value: "true")))
+        assert(Entitlements(tier: .pro).closedPositions && !Entitlements(tier: .free).closedPositions)
+    }
+    static func checkWalletBook() throws {
+        let a = RevertClient.sampleWallet, b = "0xD360EcB91406717Ad13C4fae757b69B417E2Af6b", c = "0x0000000000000000000000000000000000000001"
+        var book = WalletBook()
+        assert(book.isEmpty && book.active == nil)
+        assert(book.add("nope", limit: 5) == .invalid && book.isEmpty)
+        assert(book.add(" \(a)\n", limit: 1) == .added && book.wallets == [a] && book.active == a, "whitespace trimmed")
+        assert(book.add(b, limit: 1) == .full && book.wallets == [a], "Free limit refuses a second wallet")
+        assert(book.add(b, limit: 5) == .added && book.active == b && book.wallets == [a, b])
+        assert(book.add(a.uppercased().replacingOccurrences(of: "0X", with: "0x"), limit: 5) == .selectedExisting && book.active == a && book.wallets.count == 2, "case-insensitive duplicate selects the existing entry and keeps its casing")
+        book.select(b.lowercased()); assert(book.active == b, "select is case-insensitive and keeps stored casing")
+        book.select(c); assert(book.active == b, "selecting an unknown wallet is ignored")
+        book.remove(b); assert(book.wallets == [a] && book.active == a, "removing the active wallet falls back to the first")
+        book.remove(a); assert(book.isEmpty && book.active == nil)
+        // Persistence and migration from the single-wallet default.
+        let suite = "poolside.validation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        assert(WalletBook.load(from: defaults).isEmpty)
+        defaults.set(a, forKey: WalletBook.activeKey)
+        let migrated = WalletBook.load(from: defaults)
+        assert(migrated.wallets == [a] && migrated.active == a, "legacy single wallet becomes a one-entry book")
+        var saved = migrated; saved.add(b, limit: 5); saved.save(to: defaults)
+        let reloaded = WalletBook.load(from: defaults)
+        assert(reloaded.wallets == [a, b] && reloaded.active == b)
+        assert(defaults.string(forKey: WalletBook.activeKey) == b, "the legacy key keeps tracking the active wallet")
+        // A stale active key that is not in the list falls back to the first wallet.
+        defaults.set(c, forKey: WalletBook.activeKey)
+        assert(WalletBook.load(from: defaults).active == a)
+        assert(WalletBook(wallets: [a, "junk", a.uppercased()], active: nil).wallets == [a], "invalid and duplicate entries are dropped on load")
+    }
+    static func checkLicense() throws {
+        let signer = Curve25519.Signing.PrivateKey()
+        let pub = signer.publicKey.rawRepresentation.base64EncodedString()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let perpetual = try License.issue(License.Payload(t: .pro, id: "ada@example.com", exp: nil, iat: now.timeIntervalSince1970), privateKey: signer)
+        assert(perpetual.hasPrefix("POOLSIDE-") && perpetual.split(separator: "-").count == 3)
+        let ok = try License.verify(perpetual, publicKeyBase64: pub, now: now).get()
+        assert(ok.tier == .pro && ok.payload.id == "ada@example.com" && ok.expires == nil && ok.key == perpetual)
+        // Pasted with line breaks and spaces, lowercase prefix: still valid.
+        let messy = "  poolside-" + perpetual.dropFirst(9).enumerated().map { $0.offset % 20 == 19 ? "\($0.element)\n " : String($0.element) }.joined()
+        assert((try? License.verify(messy, publicKeyBase64: pub, now: now).get())?.key == perpetual)
+        // Tampering: flipping the tier in the payload breaks the signature.
+        let parts = perpetual.split(separator: "-").map(String.init)
+        var json = String(decoding: License.base64url(parts[1])!, as: UTF8.self)
+        assert(json.contains("\"t\":\"pro\""))
+        json = json.replacingOccurrences(of: "ada@example.com", with: "eve@example.com")
+        let forged = "POOLSIDE-\(License.base64url(Data(json.utf8)))-\(parts[2])"
+        assert(License.verify(forged, publicKeyBase64: pub, now: now) == .failure(.signature))
+        // Wrong issuer: a key signed by a different private key is rejected.
+        let other = try License.issue(ok.payload, privateKey: Curve25519.Signing.PrivateKey())
+        assert(License.verify(other, publicKeyBase64: pub, now: now) == .failure(.signature))
+        // Format failures.
+        for bad in ["", "POOLSIDE", "POOLSIDE-abc", "ACME-\(parts[1])-\(parts[2])", "POOLSIDE-\(parts[1])-\(parts[2])-extra", "POOLSIDE-!!-\(parts[2])"] {
+            assert(License.verify(bad, publicKeyBase64: pub, now: now) == .failure(.format), bad)
+        }
+        // Expiry is enforced at verification and again on load.
+        let exp = now.addingTimeInterval(86_400)
+        let expiring = try License.issue(License.Payload(t: .pro, id: "trial", exp: exp.timeIntervalSince1970, iat: now.timeIntervalSince1970), privateKey: signer)
+        assert((try? License.verify(expiring, publicKeyBase64: pub, now: now).get())?.expires == exp)
+        assert(License.verify(expiring, publicKeyBase64: pub, now: exp) == .failure(.expired(exp)))
+        assert(License.verify(expiring, publicKeyBase64: pub, now: exp.addingTimeInterval(1)) == .failure(.expired(exp)))
+        // The embedded production public key is a valid 32-byte Ed25519 key and rejects test-signed keys.
+        assert(Data(base64Encoded: License.publicKeyBase64)?.count == 32)
+        assert(License.verify(perpetual, now: now) == .failure(.signature))
+        // Persistence round-trip in an isolated defaults domain.
+        let suite = "poolside.validation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        assert(License.load(from: defaults, now: now) == nil)
+        License(payload: ok.payload, key: perpetual).save(to: defaults)
+        // Saved keys are re-verified against the embedded key, so a test-signed key does not load.
+        assert(License.load(from: defaults, now: now) == nil)
+        defaults.set("garbage", forKey: License.defaultsKey)
+        assert(License.load(from: defaults, now: now) == nil)
+        License.clear(from: defaults)
+        assert(defaults.string(forKey: License.defaultsKey) == nil)
+        // Entitlements are strictly wider on Pro.
+        let free = Entitlements(tier: .free), pro = Entitlements(tier: .pro)
+        assert(free.benchmarks == ["usd", "hodl"] && Set(free.benchmarks).isSubset(of: pro.benchmarks) && pro.benchmarks.count == 5)
+        assert(pro.refreshInterval < free.refreshInterval && free.refreshInterval == 60)
+        assert(!free.launchAtLogin && pro.launchAtLogin && !free.outOfRangeAlerts && pro.outOfRangeAlerts && pro.maxWallets > free.maxWallets)
+        assert(Set(pro.benchmarks).isSubset(of: ["usd", "hodl", "eth", "token0", "token1"]), "every offered benchmark exists in Revert's performance map")
+    }
+    static func checkSpring() {
+        let spring = Spring.panel
+        let rest = Spring.State(value: 0)
+        assert(spring.state(from: rest, to: 1, at: 0) == rest)
+        // Converges to the target and settles well inside the panel timeout.
+        var settledAt: Double?
+        for t in stride(from: 0.0, through: 2.0, by: 1.0 / 240) {
+            let s = spring.state(from: rest, to: 1, at: t)
+            assert(s.value.isFinite && s.velocity.isFinite)
+            assert(s.value > -0.001 && s.value < 1.02, "overshoot stays under 2%")
+            if settledAt == nil, spring.settled(s, target: 1, tolerance: 0.001) { settledAt = t }
+        }
+        assert(settledAt != nil && settledAt! < 1.0 && settledAt! > 0.2, "settled at \(settledAt ?? -1)")
+        // Velocity is the numerical derivative of value.
+        let h = 1e-5
+        for t in [0.05, 0.15, 0.3] {
+            let a = spring.state(from: rest, to: 1, at: t - h).value, b = spring.state(from: rest, to: 1, at: t + h).value
+            let v = spring.state(from: rest, to: 1, at: t).velocity
+            assert(abs((b - a) / (2 * h) - v) < 1e-3)
+        }
+        // Retargeting from a moving state is continuous in both value and velocity.
+        let mid = spring.state(from: rest, to: 1, at: 0.08)
+        assert(mid.velocity > 0)
+        let back = spring.state(from: mid, to: 0, at: 0)
+        assert(back == mid)
+        let soon = spring.state(from: mid, to: 0, at: 0.001)
+        assert(abs(soon.value - (mid.value + mid.velocity * 0.001)) < 1e-3, "first-order continuity; dropping velocity would err by ~8e-3")
+        // The closing spring never overshoots and is done well inside half a second.
+        var previous = 1.0
+        for t in stride(from: 0.0, through: 0.6, by: 1.0 / 240) {
+            let s = Spring.panelClose.state(from: Spring.State(value: 1), to: 0, at: t)
+            assert(s.value <= previous + 1e-12 && s.value >= -1e-9, "closing is monotone")
+            previous = s.value
+        }
+        assert(Spring.panelClose.settled(Spring.panelClose.state(from: Spring.State(value: 1), to: 0, at: 0.45), target: 0, tolerance: 0.001))
+        assert(Spring.panelClose.state(from: Spring.State(value: 1), to: 0, at: 0.15).value < 0.1, "90% closed by 150 ms")
+        // Critically damped branch also converges.
+        let critical = Spring(response: 0.3, dampingFraction: 1)
+        let s = critical.state(from: rest, to: 1, at: 1.5)
+        assert(abs(s.value - 1) < 0.001 && abs(s.velocity) < 0.01)
+        for t in stride(from: 0.0, through: 1.0, by: 0.01) { assert(critical.state(from: rest, to: 1, at: t).value <= 1.000001) }
+    }
+    static func checkMotion() {
+        let collapsed = CGSize(width: 340, height: 36), expanded = CGSize(width: 400, height: 332)
+        for top in [CGFloat(900), 0, -900] {
+            let opening = PanelMotion(from: PanelMotion.Sample(size: collapsed, reveal: 0), to: expanded, reveal: 1, at: 10)
+            let closing = PanelMotion(from: PanelMotion.Sample(size: expanded, reveal: 1), to: collapsed, reveal: 0, at: 10)
+            var settled = false
+            for i in 0...240 {
+                let time = 10 + Double(i) / 120
+                for motion in [opening, closing] {
+                    let sample = motion.sample(at: time)
+                    let rect = topAnchoredFrame(size: sample.size, top: top, centerX: -200)
+                    assert(abs(rect.maxY - top) < 0.000001, "top edge is constant")
+                    assert(abs(rect.midX - (-200)) < 0.000001, "horizontally centered")
+                    assert(rect.height >= 36 - 6 && rect.height <= 332 + 6, "height stays within 2% overshoot")
+                    assert(rect.width >= 340 - 2 && rect.width <= 400 + 2)
+                    assert(sample.reveal.value > -0.02 && sample.reveal.value < 1.02)
+                }
+                if !settled, opening.settled(opening.sample(at: time), at: time) {
+                    settled = true
+                    assert(time - 10 < 1, "opening settles inside a second")
+                    assert(time - 10 > 0.25, "the spring is not instantaneous")
+                }
+            }
+            assert(settled)
+            assert(opening.settled(opening.sample(at: 10 + PanelMotion.timeout), at: 10 + PanelMotion.timeout))
+            assert(opening.target == PanelMotion.Sample(size: expanded, reveal: 1))
+        }
+        // Interrupting mid-flight: the new segment starts exactly where the old one was, velocity included.
+        let opening = PanelMotion(from: PanelMotion.Sample(size: collapsed, reveal: 0), to: expanded, reveal: 1, at: 0)
+        let interruptedAt = 0.09
+        let current = opening.sample(at: interruptedAt)
+        assert(current.height.velocity > 0 && current.reveal.velocity > 0)
+        let reversed = PanelMotion(from: current, to: collapsed, reveal: 0, at: interruptedAt)
+        assert(reversed.sample(at: interruptedAt) == current)
+        let shortly = reversed.sample(at: interruptedAt + 0.002)
+        assert(shortly.height.value > current.height.value, "carried velocity keeps it moving briefly before turning back")
+        assert(reversed.settled(reversed.sample(at: interruptedAt + 1.5), at: interruptedAt + 1.5))
+        assert(abs(reversed.sample(at: interruptedAt + 1.5).size.height - 36) < 0.1)
+    }
+    static func checkHover() {
+        var hover = HoverGate()
+        assert(hover.moved(inside: true) == .arm)
+        assert(hover.moved(inside: true) == .none, "movement inside while armed does not re-arm")
+        assert(hover.dwellElapsed(inside: true), "dwell with the pointer still inside opens")
+        // Cursor stays over the strip while the window resizes: never reopen.
+        assert(hover.moved(inside: true) == .none)
+        assert(hover.moved(inside: true) == .none)
+        assert(!hover.dwellElapsed(inside: true))
+        // Leaving re-arms, entering starts a new dwell.
+        assert(hover.moved(inside: false) == .none)
+        assert(hover.moved(inside: true) == .arm)
+        assert(hover.moved(inside: false) == .cancel, "leaving before the dwell cancels the timer")
+        assert(!hover.dwellElapsed(inside: false))
+        assert(hover.moved(inside: true) == .arm)
+        assert(!hover.dwellElapsed(inside: false), "dwell fired but the pointer already left")
+        assert(hover.moved(inside: true) == .arm)
+        hover.dismiss()
+        assert(!hover.dwellElapsed(inside: true), "dismissal disarms a pending dwell")
+        assert(hover.moved(inside: true) == .none)
+        assert(hover.moved(inside: false) == .none)
+        assert(hover.moved(inside: true) == .arm)
     }
     static func require<T>(_ value: T?) throws -> T {
         guard let value else { throw RevertError.malformed }; return value

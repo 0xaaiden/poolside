@@ -10,3 +10,4 @@ xcuserdata/
 !dist/assets/Poolside-macOS.zip
 .env
 .env.*
+.license/
