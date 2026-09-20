@@ -16,3 +16,7 @@ Not yet exercised: rate-limit responses, offline recovery, empty wallet UI again
 ## Compact redesign verification
 
 Rebuilt successfully. Inspected native light/dark layouts, wallet and appearance onboarding, live fetching, USD/HOLD changes, position detail and back navigation, and collapsed/expanded states. Native panel animation now preserves the hosting view; duration is 300 ms. Range graphics use actual normalized pool prices. Financial parsing and aggregation are unchanged. Reduce Motion is respected in code; the OS preference was not changed during QA.
+
+## Wider range / keyboard refinement
+
+Range validation passed for normal padding, prices above and below LP bounds, zero-floor domains, invalid bounds, and infinite prices. Native dark-mode QA verified the widened band, separate domain/LP labels, bundled icons, arrow-free rows, and Escape collapse followed by reopen. Dark panel and header now share pure black and the native shadow is disabled.

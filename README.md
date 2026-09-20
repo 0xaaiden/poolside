@@ -9,9 +9,9 @@ Build with `bash build.sh`, then open **Luma LP.app** in the parent folder. The 
 1. Continue through onboarding, enter a public 0x wallet address, and select System, Light, or Dark.
 2. Alternatively, choose **Explore the saved example** for an explicitly labeled offline snapshot of the supplied wallet.
 3. Click a position for its range, balances, P&L, ROI, fee APR, and pool ID.
-4. Click the black top strip or the minus control to collapse; hover the strip to expand.
+4. Press Escape while the panel has keyboard focus to collapse; hover the strip to expand. The header shows “esc to close.”
 
-The wallet address is sent only to api.revert.finance when using live mode. Address and appearance preferences persist locally in UserDefaults. No keys, wallet signing, transactions, analytics, or third-party token images are involved.
+The wallet address is sent only to api.revert.finance when using live mode. Address and appearance preferences persist locally in UserDefaults. No keys, wallet signing, transactions, analytics, or runtime image requests are involved. Bundled identity icons include source attribution.
 
 ## Build and validate
 
@@ -42,4 +42,12 @@ The [API/product analysis](docs/API-and-product-analysis.md) separates observed 
 
 ## Compact redesign
 
-The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a small tick-based range graphic replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay; explicit collapse stays closed until the pointer leaves and re-enters.
+The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay; explicit collapse stays closed until the pointer leaves and re-enters.
+
+## Range context and icons
+
+The chart adds half the LP range width on each side and extends further when needed to include the current price. LP bounds form a highlighted band; the current-price marker is never clamped to that band. The detailed view labels the outer axis and LP bounds separately. The domain never extends below zero. Unknown or invalid ranges show no invented band.
+
+Token badges appear next to both assets; chain icons sit next to the network. USDG uses a bundled icon matched by network and contract address. The other fixture tokens use monogram fallbacks because the API supplies no verified logo URLs. Robinhood uses its provided avatar. See Resources/Icons/ATTRIBUTION.md.
+
+The dark surface is pure black to join the camera strip. The native window shadow is disabled. Escape handling is local to the panel and requires no global keyboard or Accessibility permission.

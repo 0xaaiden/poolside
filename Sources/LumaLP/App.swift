@@ -87,6 +87,7 @@ final class IslandPanel: NSPanel {
     var status: NSStatusItem!
     var screenObserver: NSObjectProtocol?
     var hosting: NSHostingView<IslandView>?
+    var escapeMonitor: Any?
     var screen: NSScreen { NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main ?? NSScreen.screens[0] }
     var cameraWidth: CGFloat {
         if let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea { return r.minX - l.maxX }
@@ -95,11 +96,16 @@ final class IslandPanel: NSPanel {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         panel = IslandPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
+        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.level = .statusBar; panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false; panel.hidesOnDeactivate = false
         store.resize = { [weak self] in self?.layout(animated: true) }
         layout(); panel.orderFrontRegardless()
+        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.keyCode == 53, self.store.expanded else { return event }
+            self.store.expand(false)
+            return nil
+        }
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: "Luma LP")
         let menu = NSMenu()
@@ -130,6 +136,10 @@ final class IslandPanel: NSPanel {
                 panel.animator().setFrame(frame, display: true)
             }
         } else { panel.setFrame(frame, display: true) }
+        if store.expanded { panel.makeKey() } else { panel.resignKey() }
+    }
+    func applicationWillTerminate(_ notification: Notification) {
+        if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
     }
     @objc func show() { store.expand(true); panel.makeKeyAndOrderFront(nil) }
     @objc func settings() { store.settings(); panel.makeKeyAndOrderFront(nil) }

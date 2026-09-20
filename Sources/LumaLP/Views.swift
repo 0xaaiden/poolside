@@ -7,7 +7,7 @@ private let gain = Color(nsColor: NSColor(name: nil) { appearance in
 })
 private let surface = Color(nsColor: NSColor(name: nil) { appearance in
     appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        ? NSColor(srgbRed: 0.055, green: 0.055, blue: 0.059, alpha: 1)
+        ? NSColor.black
         : NSColor(srgbRed: 0.973, green: 0.970, blue: 0.958, alpha: 1)
 })
 private let loss = Color(nsColor: NSColor(name: nil) { appearance in
@@ -69,7 +69,7 @@ struct IslandView: View {
                     Color.clear.frame(width: cameraWidth)
                     Button(action: toggle) {
                     Group {
-                        if store.expanded { Image(systemName: "minus").font(.system(size: 10, weight: .medium)) }
+                        if store.expanded { Text("esc to close").font(.system(size: 9)).foregroundStyle(.white.opacity(0.38)) }
                         else { Text(store.error != nil ? "stale" : store.onboarding ? "set up" : money(store.pnl, signed: true)).font(.system(size: 10, weight: .medium)).monospacedDigit() }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
                     }.accessibilityLabel(store.expanded ? "Collapse Luma" : "Expand Luma")
@@ -97,6 +97,9 @@ struct IslandView: View {
             .preferredColorScheme(store.scheme).tint(.primary).buttonStyle(QuietButton())
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.selected)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.onboarding)
+            .onChange(of: store.expanded) { _, expanded in
+                if !expanded { inhibitHover = true; hoverTask?.cancel() }
+            }
     }
 }
 struct BenchmarkSwitch: View {
@@ -179,13 +182,16 @@ struct PositionRow: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 5) {
+                    AssetIcon(network: p.network, address: p.token0, symbol: p.symbol0)
                     Text(p.symbol0).foregroundStyle(.primary)
                     Text("/").foregroundStyle(.quaternary)
+                    AssetIcon(network: p.network, address: p.token1, symbol: p.symbol1)
                     Text(p.symbol1).foregroundStyle(.secondary)
                 }.font(.system(size: 12, weight: .medium)).lineLimit(1)
                 HStack(spacing: 7) {
+                    ChainIcon(network: p.network)
                     Text(p.network.capitalized).font(.system(size: 9)).foregroundStyle(.tertiary)
-                    RangeBar(fraction: p.rangeFraction, active: p.in_range == true).frame(width: 56, height: 10)
+                    RangeBar(context: p.priceContext, active: p.in_range == true).frame(width: 82, height: 12)
                 }
             }
             Spacer(minLength: 4)
@@ -193,8 +199,6 @@ struct PositionRow: View {
                 Text(money(p.underlying_value?.value)).font(.system(size: 12, weight: .medium)).foregroundStyle(.primary)
                 Text(money(p.performance?[benchmark]?.pnl?.value, signed: true)).font(.system(size: 10)).foregroundStyle(tone(p.performance?[benchmark]?.pnl?.value)).contentTransition(.numericText())
             }.monospacedDigit()
-            Image(systemName: "chevron.right").font(.system(size: 8, weight: .medium)).foregroundStyle(.tertiary)
-                .opacity(hover ? 1 : 0).offset(x: hover ? 0 : -3).frame(width: 6)
         }.padding(.vertical, 11).padding(.horizontal, 6)
             .background(.primary.opacity(hover ? 0.035 : 0), in: RoundedRectangle(cornerRadius: 7))
             .contentShape(Rectangle()).onHover { hover = $0 }
@@ -202,26 +206,80 @@ struct PositionRow: View {
             .help("\(p.pair) · \(p.in_range == true ? "In range" : "Out of range or unknown") · Unclaimed \(money(p.unclaimed))")
     }
 }
+@MainActor private enum IconAssets {
+    static let images: [String: NSImage] = {
+        #if SWIFT_PACKAGE
+        let bundle = Bundle.module
+        #else
+        let bundle = Bundle.main
+        #endif
+        var result: [String: NSImage] = [:]
+        for (name, ext) in [("usdg", "svg"), ("robinhood", "jpg")] {
+            if let url = bundle.url(forResource: name, withExtension: ext, subdirectory: "Icons"), let image = NSImage(contentsOf: url) { result[name] = image }
+        }
+        return result
+    }()
+}
+struct AssetIcon: View {
+    let network: String
+    let address: String
+    let symbol: String
+    // Symbols alone are not identities. Only this verified fixture address gets the USDG mark.
+    var knownUSDG: Bool { network == "robinhood" && address.lowercased() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }
+    var body: some View {
+        Group {
+            if knownUSDG, let image = IconAssets.images["usdg"] {
+                Image(nsImage: image).resizable().scaledToFit()
+            } else {
+                ZStack {
+                    Circle().fill(.primary.opacity(0.09))
+                    Text(String(symbol.prefix(2))).font(.system(size: 6, weight: .semibold)).foregroundStyle(.secondary)
+                }
+            }
+        }.frame(width: 15, height: 15).accessibilityHidden(true)
+    }
+}
+struct ChainIcon: View {
+    let network: String
+    var body: some View {
+        Group {
+            if network == "robinhood", let image = IconAssets.images["robinhood"] {
+                Image(nsImage: image).resizable().scaledToFit()
+            } else {
+                Image(systemName: "network").resizable().scaledToFit().foregroundStyle(.secondary)
+            }
+        }.frame(width: 11, height: 11).clipShape(Circle()).accessibilityHidden(true)
+    }
+}
 struct RangeBar: View {
-    let fraction: Double?
+    let context: PriceRangeContext?
     let active: Bool
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     var body: some View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
+                if let context {
+                    RoundedRectangle(cornerRadius: 2).fill(gain.opacity(0.13))
+                        .frame(width: g.size.width * (context.upperFraction - context.lowerFraction), height: 8)
+                        .offset(x: g.size.width * context.lowerFraction)
+                    ForEach([context.lowerFraction, context.upperFraction], id: \.self) { bound in
+                        Rectangle().fill(gain.opacity(0.6)).frame(width: 1, height: 8).offset(x: (g.size.width - 1) * bound)
+                    }
+                }
                 HStack(spacing: 0) {
                     ForEach(0..<21, id: \.self) { i in
                         Rectangle().fill(.primary.opacity(i % 5 == 0 ? 0.22 : 0.10)).frame(width: 1, height: i % 5 == 0 ? 7 : 4)
                         if i < 20 { Spacer(minLength: 0) }
                     }
                 }
-                if let fraction {
+                if let context {
                     Capsule().fill(active ? gain : loss).frame(width: 2, height: 10)
-                        .offset(x: max(0, (g.size.width - 2) * fraction))
-                        .animation(reduceMotion ? nil : .smooth(duration: 0.5), value: fraction)
+                        .offset(x: max(0, (g.size.width - 2) * context.currentFraction))
+                        .animation(reduceMotion ? nil : .smooth(duration: 0.5), value: context.currentFraction)
                 }
             }.frame(height: g.size.height)
-        }.accessibilityLabel("\(active ? "In range" : "Out of range or unknown"). Current price marker")
+        }.accessibilityLabel(context == nil ? "Price range unavailable" : "\(active ? "In range" : "Out of range or unknown"). Highlighted LP bounds on a wider price axis, with current price marker")
+            .help("Highlighted band: your LP range. Marker: current price. Axis includes 50% extra range width on each side and expands for out-of-range prices.")
     }
 }
 struct Footer: View {
@@ -258,8 +316,16 @@ struct DetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 15) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(p.pair).font(.system(size: 19, weight: .medium)).tracking(-0.5)
-                        Text("\(p.network.capitalized) · \(p.exchange == "uniswapv4" ? "Uniswap v4" : p.exchange) · \(p.fee_tier.map { number(Decimal($0) / 10000) + "%" } ?? "—")").font(.system(size: 10)).foregroundStyle(.tertiary)
+                        HStack(spacing: 6) {
+                            AssetIcon(network: p.network, address: p.token0, symbol: p.symbol0)
+                            Text(p.symbol0); Text("/").foregroundStyle(.tertiary)
+                            AssetIcon(network: p.network, address: p.token1, symbol: p.symbol1)
+                            Text(p.symbol1)
+                        }.font(.system(size: 19, weight: .medium)).tracking(-0.5)
+                        HStack(spacing: 5) {
+                            ChainIcon(network: p.network)
+                            Text("\(p.network.capitalized) · \(p.exchange == "uniswapv4" ? "Uniswap v4" : p.exchange) · \(p.fee_tier.map { number(Decimal($0) / 10000) + "%" } ?? "—")")
+                        }.font(.system(size: 10)).foregroundStyle(.tertiary)
                     }
                     HStack { metric("Pooled", money(p.underlying_value?.value)); Spacer(); metric("Unclaimed", money(p.unclaimed), trailing: true) }
                     VStack(alignment: .leading, spacing: 8) {
@@ -267,8 +333,13 @@ struct DetailView: View {
                             Text(p.in_range == true ? "In range" : "Out of range / unknown").foregroundStyle(p.in_range == true ? gain : loss)
                             Spacer(); Text("\(p.symbol1) / \(p.symbol0)").foregroundStyle(.tertiary)
                         }.font(.system(size: 9))
-                        RangeBar(fraction: p.rangeFraction, active: p.in_range == true).frame(height: 15)
-                        HStack { Text(number(p.price_lower?.value, digits: 3)); Spacer(); Text(number(p.pool_price?.value, digits: 3)).foregroundStyle(.primary); Spacer(); Text(number(p.price_upper?.value, digits: 3)) }.font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                        RangeBar(context: p.priceContext, active: p.in_range == true).frame(height: 15)
+                        HStack {
+                            Text(number(p.priceContext.map { Decimal($0.domainLower) }, digits: 3))
+                            Spacer(); Text("now \(number(p.pool_price?.value, digits: 3))").foregroundStyle(.primary); Spacer()
+                            Text(number(p.priceContext.map { Decimal($0.domainUpper) }, digits: 3))
+                        }.font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                        Text("LP bounds  \(number(p.price_lower?.value, digits: 3)) – \(number(p.price_upper?.value, digits: 3))").font(.system(size: 9)).foregroundStyle(gain)
                     }.padding(.vertical, 3)
                     Divider().opacity(0.5)
                     HStack { Text("Lifetime performance").font(.system(size: 10)).foregroundStyle(.secondary); Spacer(); BenchmarkSwitch(store: store) }
@@ -334,7 +405,7 @@ struct Onboarding: View {
                     }
                 } else {
                     HStack(spacing: 16) {
-                        RangeBar(fraction: 0.34, active: true).frame(width: 82, height: 14)
+                        RangeBar(context: PriceRangeContext(lower: 0.95, upper: 1.05, current: 0.984), active: true).frame(width: 82, height: 14)
                         Text("Less checking. More focus.").font(.system(size: 10)).foregroundStyle(.tertiary)
                     }.accessibilityLabel("Illustration of a position range")
                 }

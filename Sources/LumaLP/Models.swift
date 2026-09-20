@@ -60,6 +60,31 @@ struct Position: Decodable, Identifiable, Sendable {
         guard let p = pool_price?.value, let l = price_lower?.value, let u = price_upper?.value, u > l else { return nil }
         return min(1, max(0, NSDecimalNumber(decimal: (p - l) / (u - l)).doubleValue))
     }
+    var priceContext: PriceRangeContext? {
+        guard let l = price_lower?.value, let u = price_upper?.value, let p = pool_price?.value else { return nil }
+        return PriceRangeContext(lower: NSDecimalNumber(decimal: l).doubleValue,
+                                 upper: NSDecimalNumber(decimal: u).doubleValue,
+                                 current: NSDecimalNumber(decimal: p).doubleValue)
+    }
+}
+/// Price axis adds half the LP width on each side, and includes an out-of-range spot price.
+struct PriceRangeContext: Sendable {
+    let domainLower: Double
+    let domainUpper: Double
+    let lowerFraction: Double
+    let upperFraction: Double
+    let currentFraction: Double
+    init?(lower: Double, upper: Double, current: Double) {
+        guard lower.isFinite, upper.isFinite, current.isFinite, lower >= 0, upper > lower, current >= 0 else { return nil }
+        let span = upper - lower
+        let lo = max(0, min(lower - span * 0.5, current - span * 0.1))
+        let hi = max(upper + span * 0.5, current + span * 0.1)
+        guard hi.isFinite, hi > lo else { return nil }
+        domainLower = lo; domainUpper = hi
+        lowerFraction = (lower - lo) / (hi - lo)
+        upperFraction = (upper - lo) / (hi - lo)
+        currentFraction = (current - lo) / (hi - lo)
+    }
 }
 struct Envelope: Decodable, Sendable {
     let success: Bool
