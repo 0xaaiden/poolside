@@ -29,7 +29,7 @@ Build with `bash build.sh`, then open **Poolside.app** in the parent folder. The
 3. Click a position for its range, balances, P&L, ROI, fee APR, and pool ID.
 4. Hover the strip to expand; click the strip or press Escape to collapse. Hovering and clicking the strip never take keyboard focus away from the app you are working in, so the header reads “click to close” until you click inside the panel body, after which it reads “esc to close.” After the first run the app launches as a collapsed strip.
 
-The wallet address is sent only to api.revert.finance when using live mode. Address and appearance preferences persist locally in UserDefaults. No keys, wallet signing, transactions, analytics, or runtime image requests are involved. Bundled identity icons include source attribution.
+The wallet address is sent only to api.revert.finance when using live mode. Token icons are the one other network use: the contract addresses of tokens in positions currently on screen go to Revert's icon proxy (`/v1/proxy/codex-icons`), and the image files it names are downloaded from token-media.defined.fi and cached under ~/Library/Caches. Address and appearance preferences persist locally in UserDefaults. No keys, wallet signing, transactions, or analytics are involved. Bundled identity icons include source attribution.
 
 ## Build and validate
 
@@ -100,7 +100,11 @@ The expanded overview is 400 × 332 points on a 32-point menu bar (width adapts 
 
 The chart adds half the LP range width on each side and extends further when needed to include the current price. LP bounds form a highlighted band; the current-price marker is never clamped to that band. The detailed view labels the outer axis and LP bounds separately. The domain never extends below zero. Unknown or invalid ranges show no invented band.
 
-Token badges appear next to both assets; chain icons sit next to the network. USDG uses a bundled icon matched by network and contract address. The other fixture tokens use monogram fallbacks because the API supplies no verified logo URLs. Robinhood uses its provided avatar. See Resources/Icons/ATTRIBUTION.md.
+Token badges appear next to both assets; chain icons sit next to the network. USDG uses a bundled icon matched by network and contract address. Every other token asks Revert's Codex icon proxy, keyed by network id and contract address, never by symbol. `TokenIcons` (Sources/Poolside/Icons.swift) folds the requests from rows that appear within 40 ms into one POST, downloads at most six images at a time, caches them in memory and on disk, and shows a two-letter monogram while loading, when the proxy has no icon (the native ETH placeholder address, for example) or when the network name is not in its chain-id table. A failed request is forgotten so a later scroll retries; a token the proxy does not know is not asked again that session. Robinhood uses its provided avatar. See Resources/Icons/ATTRIBUTION.md.
+
+## Large wallets
+
+The position list is a `LazyVStack`, so a wallet with hundreds of open positions builds only the rows on screen. Each row carries a hover tracking area and tooltips that AppKit re-registers on every frame of the panel spring, so the number of live rows sets the cost of opening the panel. The range graphic is a single `Canvas` draw plus an animatable marker shape instead of about forty views per row. `bash bench.sh <wallet.json>` lays the real dashboard out offscreen and reports timings; for a 303-position wallet the first layout after data went from about 960 ms to under 20 ms and a spring frame from 22 ms to under 1 ms on the development machine.
 
 The dark surface is pure black to join the camera strip. The native window shadow is disabled. Escape handling is local to the panel and requires no global keyboard or Accessibility permission, so it works once the panel has keyboard focus. Focus is taken deliberately and never during a transition: hovering and clicking the header strip leave focus alone, while clicking inside the panel body, the menu-bar Show command, onboarding, or a text field make the panel key. Collapsing never re-orders or hides the window, so the closing motion is a single uninterrupted spring.
 

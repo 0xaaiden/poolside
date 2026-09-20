@@ -249,7 +249,10 @@ struct Dashboard: View {
                 Text(store.showClosed ? "Withdrawn / P&L" : "Pooled / P&L").foregroundStyle(.tertiary)
             }.font(.system(size: 9)).padding(.top, 8).padding(.bottom, 4)
             ScrollView {
-                VStack(spacing: 0) {
+                // Lazy: a wallet with hundreds of positions builds only the rows on screen. Each row
+                // carries a hover tracking area and tooltips, which AppKit re-registers on every frame
+                // of the panel spring, so the row count directly sets the cost of opening the panel.
+                LazyVStack(spacing: 0) {
                     if store.showClosed {
                         if store.closed.isEmpty { empty(loading: store.loadingClosed, text: store.loadingClosed ? "Finding closed positions…" : store.error != nil ? "Closed positions unavailable" : closedReady ? "No closed positions" : "—") }
                         ForEach(store.closed) { p in
@@ -368,16 +371,21 @@ struct PositionRow: View {
         return result
     }()
 }
+/// Bundled USDG mark first, then the token's icon from Revert's Codex proxy, then a monogram while it
+/// loads or when no icon exists. Icons are keyed by network and contract address, never by symbol.
 struct AssetIcon: View {
     let network: String
     let address: String
     let symbol: String
-    // Symbols alone are not identities. Only this verified fixture address gets the USDG mark.
+    var icons = TokenIcons.shared
+    // Symbols alone are not identities. Only this verified fixture address gets the bundled USDG mark.
     var knownUSDG: Bool { network == "robinhood" && address.lowercased() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }
     var body: some View {
         Group {
             if knownUSDG, let image = IconAssets.images["usdg"] {
                 Image(nsImage: image).resizable().scaledToFit()
+            } else if let image = icons.image(network: network, address: address) {
+                Image(nsImage: image).resizable().scaledToFill().clipShape(Circle())
             } else {
                 ZStack {
                     Circle().fill(.primary.opacity(0.09))
@@ -399,34 +407,44 @@ struct ChainIcon: View {
         }.frame(width: 11, height: 11).clipShape(Circle()).accessibilityHidden(true)
     }
 }
+/// The current-price marker as a shape, so its position still animates with a smooth transition.
+struct RangeMarker: Shape {
+    var fraction: Double
+    var animatableData: Double { get { fraction } set { fraction = newValue } }
+    func path(in rect: CGRect) -> Path {
+        let x = max(0, (rect.width - 2) * min(1, max(0, fraction)))
+        return Path(roundedRect: CGRect(x: rect.minX + x, y: rect.midY - 5, width: 2, height: 10), cornerRadius: 1)
+    }
+}
+/// Axis, band and bounds are one Canvas draw instead of some forty views. With hundreds of rows this
+/// is the difference between a panel that opens instantly and one that stalls.
 struct RangeBar: View {
     let context: PriceRangeContext?
     let active: Bool
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     var body: some View {
-        GeometryReader { g in
-            ZStack(alignment: .leading) {
-                if let context {
-                    RoundedRectangle(cornerRadius: 2).fill(gain.opacity(0.13))
-                        .frame(width: g.size.width * (context.upperFraction - context.lowerFraction), height: 8)
-                        .offset(x: g.size.width * context.lowerFraction)
-                    ForEach([context.lowerFraction, context.upperFraction], id: \.self) { bound in
-                        Rectangle().fill(gain.opacity(0.6)).frame(width: 1, height: 8).offset(x: (g.size.width - 1) * bound)
-                    }
+        Canvas(rendersAsynchronously: false) { g, size in
+            if let context {
+                let band = CGRect(x: size.width * context.lowerFraction, y: (size.height - 8) / 2, width: size.width * (context.upperFraction - context.lowerFraction), height: 8)
+                g.fill(Path(roundedRect: band, cornerRadius: 2), with: .color(gain.opacity(0.13)))
+                for bound in [context.lowerFraction, context.upperFraction] {
+                    g.fill(Path(CGRect(x: (size.width - 1) * bound, y: (size.height - 8) / 2, width: 1, height: 8)), with: .color(gain.opacity(0.6)))
                 }
-                HStack(spacing: 0) {
-                    ForEach(0..<21, id: \.self) { i in
-                        Rectangle().fill(.primary.opacity(i % 5 == 0 ? 0.22 : 0.10)).frame(width: 1, height: i % 5 == 0 ? 7 : 4)
-                        if i < 20 { Spacer(minLength: 0) }
-                    }
-                }
-                if let context {
-                    Capsule().fill(active ? gain : loss).frame(width: 2, height: 10)
-                        .offset(x: max(0, (g.size.width - 2) * context.currentFraction))
-                        .animation(reduceMotion ? nil : .smooth(duration: 0.5), value: context.currentFraction)
-                }
-            }.frame(height: g.size.height)
-        }.accessibilityLabel(context == nil ? "Price range unavailable" : context?.fullRange == true ? "Full range position, always in range" : "\(active ? "In range" : "Out of range or unknown"). Highlighted LP bounds on a wider price axis, with current price marker")
+            }
+            for i in 0..<21 {
+                let major = i % 5 == 0
+                let height: CGFloat = major ? 7 : 4
+                let x = (size.width - 1) * CGFloat(i) / 20
+                g.fill(Path(CGRect(x: x, y: (size.height - height) / 2, width: 1, height: height)), with: .color(.primary.opacity(major ? 0.22 : 0.10)))
+            }
+        }
+        .overlay {
+            if let context {
+                RangeMarker(fraction: context.currentFraction).fill(active ? gain : loss)
+                    .animation(reduceMotion ? nil : .smooth(duration: 0.5), value: context.currentFraction)
+            }
+        }
+        .accessibilityLabel(context == nil ? "Price range unavailable" : context?.fullRange == true ? "Full range position, always in range" : "\(active ? "In range" : "Out of range or unknown"). Highlighted LP bounds on a wider price axis, with current price marker")
             .help("Highlighted band: your LP range. Marker: current price. Axis includes 50% extra range width on each side and expands for out-of-range prices.")
     }
 }

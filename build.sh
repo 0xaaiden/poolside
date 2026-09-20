@@ -5,7 +5,7 @@ APP="../Poolside.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 source ./sdk.sh
 POOLSIDE_SDK="$(poolside_sdk)"
-swiftc -sdk "$POOLSIDE_SDK" -parse-as-library -swift-version 6 -target arm64-apple-macosx14.0 Sources/Poolside/Models.swift Sources/Poolside/License.swift Sources/Poolside/App.swift Sources/Poolside/Views.swift -o "$APP/Contents/MacOS/Poolside"
+swiftc -sdk "$POOLSIDE_SDK" -parse-as-library -swift-version 6 -target arm64-apple-macosx14.0 Sources/Poolside/Models.swift Sources/Poolside/License.swift Sources/Poolside/Icons.swift Sources/Poolside/App.swift Sources/Poolside/Views.swift -o "$APP/Contents/MacOS/Poolside"
 cp Sources/Poolside/Resources/sample.json Sources/Poolside/Resources/sample-closed.json "$APP/Contents/Resources/"
 cp -R Sources/Poolside/Resources/Icons "$APP/Contents/Resources/"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
