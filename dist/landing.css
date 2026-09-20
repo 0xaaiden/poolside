@@ -2,23 +2,23 @@
    Type scales with clamp() so nothing grows without bound; the hero is a flow layout
    (nav → copy → bottom row) so the note, preview and buttons can never overlap. */
 
-@font-face{font-family:Outfit;src:url(assets/outfit-regular.ttf) format('truetype');font-weight:400;font-display:swap}
-@font-face{font-family:Outfit;src:url(assets/outfit-black.ttf) format('truetype');font-weight:800 900;font-display:swap}
-@font-face{font-family:Outfit;src:url(assets/outfit-semibold.ttf) format('truetype');font-weight:500 700;font-display:swap}
+@font-face{font-family:Manrope;src:url(assets/manrope-400.ttf) format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:Manrope;src:url(assets/manrope-600.ttf) format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:Manrope;src:url(assets/manrope-800.ttf) format('truetype');font-weight:800;font-display:swap}
 
 :root{
   --cream:#fff0dc;--wine:#500013;--ink:#361020;--coral:#f18f6f;--muted:#ac7776;
   --gutter:clamp(20px,3.65vw,64px);
-  --fs-wordmark:clamp(84px,12.5vw,224px);
-  --fs-tagline:clamp(30px,3.4vw,60px);
-  --fs-lede:clamp(16px,1.15vw,21px);
+  --fs-wordmark:clamp(96px,16.5vw,288px);
+  --fs-tagline:clamp(36px,4.4vw,68px);
+  --fs-lede:clamp(17px,1.55vw,24px);
   --fs-note:clamp(18px,1.3vw,24px);
 }
 
 /* Base ------------------------------------------------------------------ */
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:24px}
-body{margin:0;background:var(--cream);font-family:Outfit,system-ui,sans-serif;color:var(--ink);font-size:16px;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--cream);font-family:Manrope,system-ui,sans-serif;color:var(--ink);font-size:16px;-webkit-font-smoothing:antialiased}
 button,a{-webkit-tap-highlight-color:transparent}
 button{font:inherit;cursor:pointer;border:0}
 a{color:inherit;text-decoration:none}
@@ -39,7 +39,7 @@ button:disabled{cursor:default}
 .negative{color:#ec9998!important}
 
 /* Hero ------------------------------------------------------------------ */
-.hero{position:relative;display:flex;flex-direction:column;min-height:min(100svh,1040px);overflow:hidden;color:var(--cream);isolation:isolate;background:#a65346}
+.hero{position:relative;display:flex;flex-direction:column;min-height: min(100svh,1100px);overflow:hidden;color:var(--cream);isolation:isolate;background:#a65346}
 .scenery,.shade{position:absolute;inset:0;z-index:-2}
 .scenery{background:url(assets/last-light-v2.webp) center/cover no-repeat;animation:arrive 1.6s ease-out both}
 .shade{z-index:-1;background:linear-gradient(90deg,rgba(66,20,31,.14),transparent 58%),linear-gradient(0deg,rgba(31,8,22,.25),transparent 35%)}
@@ -49,39 +49,39 @@ button:disabled{cursor:default}
 .platform{border-left:1px solid #ffefdc55;padding-left:clamp(14px,1.9vw,28px);font-size:14px}
 .nav nav{display:flex;align-items:center;margin-left:auto}
 
-.hero-copy{position:relative;z-index:2;margin:clamp(4px,1vw,20px) var(--gutter) 0;animation:copy-in .8s .1s both}
-.hero-copy h1{font-size:var(--fs-wordmark);font-weight:900;line-height:.92;letter-spacing:-.045em;margin:0 0 0 -.04em}
-.hero-copy h2{font-size:var(--fs-tagline);font-weight:600;line-height:1.06;letter-spacing:-.035em;margin:clamp(14px,1.4vw,26px) 0 clamp(8px,.9vw,14px)}
+.hero-copy{position:relative;z-index:2;margin:-24px var(--gutter) 0;animation:copy-in .8s .1s both}
+.hero-copy h1{font-size:var(--fs-wordmark);font-weight:800;line-height:1.12;letter-spacing:-.065em;margin:0 0 18px -.065em}
+.hero-copy h2{font-size:var(--fs-tagline);font-weight:600;line-height:1.06;letter-spacing:-.035em;margin:0 0 18px}
 .hero-copy p{font-size:var(--fs-lede);line-height:1.45;margin:0 0 clamp(22px,2.2vw,34px);font-weight:400;max-width:34em}
 .actions{display:flex;flex-wrap:wrap;gap:clamp(12px,1.5vw,26px)}
 .mobile-br{display:none}
 
-.hero-note{position:relative;z-index:2;margin:clamp(32px,4vw,64px) var(--gutter) 0;animation:copy-in .9s .25s both}
+.hero-note{position:relative;z-index:2;margin:0;padding-top:6px;animation:copy-in .9s .25s both}
 .short-rule{display:block;width:25px;height:1px;background:currentColor}
 .hero-note p{font-size:var(--fs-note);line-height:1.25;margin:10px 0 0}
 
 /* Bottom row: the framed preview, right-aligned and in flow, so the hero grows to fit it
    instead of pinning it at a percentage that collides with the copy. It may rise into the
    note's band because the note only occupies the left gutter. */
-.hero-bottom{position:relative;z-index:2;display:flex;justify-content:flex-end;margin-top:auto;padding-top:clamp(8px,1vw,20px)}
-.preview-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:10px;width:min(58vw,880px);margin:clamp(-70px,-4.5vw,-24px) -3.5% 0 0}
-.hero-demo-label{font-size:clamp(10px,.8vw,12px);color:#f9d7c1b3;padding-right:calc(3.5vw + 28px)}
-.mac-preview{position:relative;width:100%;aspect-ratio:16/8.4;margin-bottom:-13%;padding:9px;border:2px solid #a79285;border-radius:clamp(30px,3.4vw,52px) clamp(30px,3.4vw,52px) 0 0;transform:rotate(3deg);transform-origin:top left;background:#09090a;box-shadow:0 -2px 0 #56483f,0 0 0 2px #34292b77,0 14px 35px #3e141530;container-type:inline-size}
+.hero-bottom{position:relative;z-index:2;display:grid;grid-template-columns:43% 57%;align-items:start;gap:0;margin-top:clamp(40px,4vw,64px);padding-left:var(--gutter)}
+.preview-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:16px;width:110%;margin:0 0 0 0;min-width:0}
+.hero-demo-label{font-size:12px;color:#f9d7c1b3;padding-right:calc(3.5vw + 28px)}
+.mac-preview{position:relative;width:100%;aspect-ratio:16/8.4;margin-bottom:-11%;padding:9px;border:2px solid #a79285;border-radius:clamp(30px,3.4vw,52px) clamp(30px,3.4vw,52px) 0 0;transform:rotate(3deg);transform-origin:top left;background:#09090a;box-shadow:0 -2px 0 #56483f,0 0 0 2px #34292b77,0 14px 35px #3e141530;container-type:inline-size}
 .screen{position:relative;height:100%;border-radius:clamp(22px,2.6vw,40px) clamp(22px,2.6vw,40px) 0 0;overflow:hidden;background:#d3795c url(assets/dunes.webp) center/cover}
 
 /* Notch preview. Typography uses container units so it scales with the frame. */
 .notch{position:absolute;top:0;left:61%;transform:translateX(-50%);width:61%;border-radius:0 0 24px 24px;background:#090909;color:#f5f1ed;overflow:hidden;transition:width .38s cubic-bezier(.22,1,.36,1),border-radius .38s}
-.notch-top{width:100%;display:flex;align-items:center;justify-content:space-between;gap:2cqi;padding:2.7cqi 3cqi 1.7cqi;min-height:8cqi;background:#090909;color:#c8c3c3;font:clamp(9px,1.5cqi,13px) system-ui;white-space:nowrap}
+.notch-top{width:100%;display:flex;align-items:center;justify-content:space-between;gap:2cqi;padding:2.7cqi 3cqi 1.7cqi;min-height:8cqi;background:#090909;color:#c8c3c3;font:clamp(11px,1.5cqi,13px) system-ui;white-space:nowrap}
 .wallet{display:flex;align-items:center;gap:8px;color:#b8b3be}
 .identicon{display:none}
 .notch-total{display:flex;align-items:center;gap:1.6cqi;margin-left:auto;font-size:clamp(11px,2cqi,17px);letter-spacing:-.2px;color:#f5f5f4}
 .notch-total .positive{font-size:clamp(10px,1.75cqi,15px)}
-#close-hint{font-size:clamp(8px,1.25cqi,10px);color:#95909a}
+#close-hint{font-size:11px;color:#95909a}
 .notch-content{padding:0 3cqi 2.4cqi;font-family:system-ui;max-height:370px;opacity:1;overflow:hidden;transform-origin:top;transition:max-height .42s cubic-bezier(.22,1,.36,1),padding .42s,opacity .2s,transform .42s}
 .position{width:100%;display:grid;grid-template-columns:1.05fr 1.25fr .6fr;gap:1.9cqi;align-items:center;padding:1.5cqi 0;background:none;color:inherit;text-align:left;font-size:clamp(9px,1.6cqi,13px)}
 .position:hover{background:#ffffff06}
-.pair{font-size:clamp(9px,1.5cqi,12px);white-space:nowrap}
-.position-value{margin-left:auto;text-align:right;font-size:clamp(9px,1.5cqi,12px);color:#bfb7c1;white-space:nowrap}
+.pair{font-size:clamp(11px,1.5cqi,13px);white-space:nowrap}
+.position-value{margin-left:auto;text-align:right;font-size:clamp(11px,1.5cqi,13px);color:#bfb7c1;white-space:nowrap}
 .mini-range{display:block;position:relative;height:15px;width:100%;background:repeating-linear-gradient(90deg,#716a73 0 1px,transparent 1px 19.8%)}
 .mini-range:before{content:'';position:absolute;top:7px;width:100%;height:1px;background:#bbb1b455}
 .mini-range span{position:absolute;top:6px;left:25%;width:45%;height:3px;border-radius:4px;background:#9cdbb3}
@@ -102,7 +102,7 @@ button:disabled{cursor:default}
 .eyebrow,.edition,.feature-number{font-family:monospace;font-size:12px;letter-spacing:1.4px}
 .edition{color:#92505a}
 .details-heading{display:flex;justify-content:space-between;align-items:end;gap:30px;margin:40px 0 66px}
-.details h2{font-size:clamp(32px,3.6vw,54px);line-height:1.06;letter-spacing:-.035em;font-weight:700;margin:0}
+.details h2{font-size:clamp(32px,3.6vw,54px);line-height:1.06;letter-spacing:-.035em;font-weight:600;margin:0}
 .details-heading p{font-size:clamp(16px,1.1vw,18px);line-height:1.5;color:#81515b;margin:0}
 .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(24px,3vw,48px)}
 .feature-grid article{border-top:1px solid #520c2233;padding-top:22px;transition:transform .3s}
@@ -135,7 +135,7 @@ footer .brand{color:var(--cream);font-size:26px}
 /* Download dialog ---------------------------------------------------------- */
 dialog{border:1px solid #dda58f;border-radius:20px;padding:40px;max-width:480px;width:calc(100% - 32px);background:var(--cream);color:var(--ink);box-shadow:0 30px 150px #24051355}
 dialog::backdrop{background:#290c20b0;backdrop-filter:blur(7px)}
-dialog h2{font-size:36px;letter-spacing:-1.5px;line-height:1.08;font-weight:700;margin:22px 0 18px}
+dialog h2{font-size:36px;letter-spacing:-1.5px;line-height:1.08;font-weight:600;margin:22px 0 18px}
 dialog p,dialog li{font-size:16px;line-height:1.5}
 dialog ul{padding-left:20px;color:#7c4b59;margin:20px 0 30px}
 dialog small{display:block;font-size:12px;line-height:1.6;color:#875666;margin-top:18px}
@@ -146,7 +146,8 @@ dialog small{display:block;font-size:12px;line-height:1.6;color:#875666;margin-t
 
 /* Tablet ------------------------------------------------------------------- */
 @media(max-width:1100px){
-  .preview-wrap{width:min(66vw,700px);margin-right:-6%}
+  .hero{min-height:0}
+  .hero-bottom{grid-template-columns:32% 68%}.preview-wrap{width:106%;margin:0}.hero-copy p{max-width:38em}
   .mac-preview{margin-bottom:-11%}
   .notch{width:70%;left:58%}
   .details-heading{align-items:start;flex-direction:column}
@@ -157,25 +158,25 @@ dialog small{display:block;font-size:12px;line-height:1.6;color:#875666;margin-t
 @media(max-width:650px){
   :root{--gutter:6vw}
   .hero{min-height:0}
-  .nav{padding:22px var(--gutter);gap:14px}
-  .brand{font-size:24px}
-  .platform{font-size:12px;padding-left:14px}
+  .nav{padding:20px var(--gutter);gap:12px}
+  .brand{font-size:23px}
+  .platform{font-size:12px;padding-left:12px}
   .nav .small span{display:none}
   .hero-copy{margin-top:28px}
-  .hero-copy h1{font-size:clamp(72px,21vw,96px);letter-spacing:-.03em}
-  .hero-copy h2{font-size:clamp(32px,10vw,42px);margin:18px 0 12px}
+  .hero-copy h1{font-size:clamp(72px,22.5vw,140px);letter-spacing:-.065em;line-height:1.08}
+  .hero-copy h2{font-size:clamp(30px,8.6vw,44px);margin:16px 0 18px;letter-spacing:-.04em}
   .hero-copy p{font-size:17px;margin-bottom:22px}
   .mobile-br{display:block}
   .actions{gap:10px}
   .actions .button{font-size:14px;padding:14px 20px;gap:12px}
-  .hero-note{margin-top:32px}
+  .hero-note{margin:0 0 30px;padding:0}
   .hero-note p{font-size:21px}
-  .hero-bottom{padding-top:28px}
-  .preview-wrap{width:106%;margin:0 0 0 -3%;align-items:flex-start;gap:8px}
-  .hero-demo-label{padding:0 0 0 calc(var(--gutter) + 3%);font-size:10px}
-  .mac-preview{aspect-ratio:16/11;margin-bottom:-8%;padding:7px;border-radius:29px 29px 0 0}
+  .hero-bottom{display:flex;flex-direction:column;margin-top:32px;padding:0 var(--gutter)}
+  .preview-wrap{width:112%;margin:0 -6%;align-items:flex-start;gap:12px}
+  .hero-demo-label{padding:0 0 0 6%;font-size:12px}
+  .mac-preview{aspect-ratio:16/10;margin-bottom:-8%;padding:7px;border-radius:29px 29px 0 0}
   .screen{border-radius:20px 20px 0 0}
-  .notch{width:84%;left:48%;border-radius:0 0 19px 19px}
+  .notch{width:90%;left:50%;border-radius:0 0 19px 19px}
   .notch:not(.expanded){width:65%}
   .shade{background:linear-gradient(90deg,#50152422,transparent)}
   .scenery{background-position:57% center}
@@ -200,3 +201,5 @@ dialog small{display:block;font-size:12px;line-height:1.6;color:#875666;margin-t
   html{scroll-behavior:auto}
   *,*:before,*:after{animation:none!important;transition:none!important}
 }
+
+@media(max-width:380px){.platform{display:none}.nav .button{padding:11px 17px}.actions{display:grid;grid-template-columns:1fr}.actions .button{justify-content:center}.notch-top{gap:5px}.notch-total{gap:6px}.notch-total .positive{font-size:10px}.pair,.position-value{font-size:10px}.hero-copy{margin-top:20px}}
