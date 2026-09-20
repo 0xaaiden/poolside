@@ -42,7 +42,7 @@ The [API/product analysis](docs/API-and-product-analysis.md) separates observed 
 
 ## Compact redesign
 
-The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay; explicit collapse stays closed until the pointer leaves and re-enters.
+The expanded overview is 400 × 352 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 462 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Hover expansion has a 180 ms delay. Dismissal is guarded by the physical cursor position in a fixed screen-space header region, so resize-generated hover events cannot reopen it. The pointer must leave and re-enter before hover is armed again.
 
 ## Range context and icons
 
@@ -51,3 +51,7 @@ The chart adds half the LP range width on each side and extends further when nee
 Token badges appear next to both assets; chain icons sit next to the network. USDG uses a bundled icon matched by network and contract address. The other fixture tokens use monogram fallbacks because the API supplies no verified logo URLs. Robinhood uses its provided avatar. See Resources/Icons/ATTRIBUTION.md.
 
 The dark surface is pure black to join the camera strip. The native window shadow is disabled. Escape handling is local to the panel and requires no global keyboard or Accessibility permission.
+
+## Wallet identity and financial colors
+
+The header uses a local native port of blo’s Ethereum blockies algorithm and a shortened wallet address. See THIRD_PARTY_NOTICES.md for upstream attribution and license. No ENS name is inferred. Unclaimed fees are green; P&L and pool P&L use green for positive, red for negative, and neutral for zero or unavailable values. The fee label remains unclaimed because the displayed value is pending fees, not fees already collected.

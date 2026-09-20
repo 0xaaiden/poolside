@@ -1,5 +1,44 @@
 import Foundation
 
+/// Physical-pointer gate: layout-generated hover events cannot rearm a dismissed notch.
+struct HoverGate {
+    private(set) var suppressed = false
+    private var enteredAt: TimeInterval?
+    mutating func dismiss() { suppressed = true; enteredAt = nil }
+    mutating func update(inside: Bool, now: TimeInterval) -> Bool {
+        guard inside else { suppressed = false; enteredAt = nil; return false }
+        guard !suppressed else { return false }
+        guard let enteredAt else { self.enteredAt = now; return false }
+        if now - enteredAt >= 0.18 { dismiss(); return true }
+        return false
+    }
+}
+
+/// Native port of bpierre/blo's MIT-licensed image/random algorithm. See THIRD_PARTY_NOTICES.md.
+struct WalletIconData: Equatable {
+    let pixels: [Int]
+    let palette: [[Int]]
+    init(address: String) {
+        var seed = [UInt32](repeating: 0, count: 4)
+        for (i, c) in address.lowercased().utf16.enumerated() { seed[i % 4] = seed[i % 4] &* 31 &+ UInt32(c) }
+        func random() -> Double {
+            let t = Int32(bitPattern: seed[0]) ^ (Int32(bitPattern: seed[0]) &<< 11)
+            seed[0] = seed[1]; seed[1] = seed[2]; seed[2] = seed[3]
+            let w = Int32(bitPattern: seed[3])
+            seed[3] = UInt32(bitPattern: w ^ (w >> 19) ^ t ^ (t >> 8))
+            return Double(seed[3]) / 2147483648
+        }
+        func color() -> [Int] {
+            let h = random() * 360, s = 40 + random() * 60
+            let l = (random() + random() + random() + random()) * 25
+            return [Int(h), Int(s), Int(l)]
+        }
+        let main = color(), background = color(), spot = color()
+        palette = [background, main, spot]
+        pixels = (0..<32).map { _ in Int(random() * 2.3) }
+    }
+}
+
 struct Amount: Decodable, Sendable {
     let value: Decimal
     init(from decoder: Decoder) throws {

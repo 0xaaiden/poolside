@@ -18,6 +18,9 @@ import QuartzCore
         didSet { UserDefaults.standard.set(theme, forKey: "theme") }
     }
     var resize: (() -> Void)?
+    var didDismiss: (() -> Void)?
+    var displayWallet: String { demo ? RevertClient.sampleWallet : wallet }
+    var shortWallet: String { RevertClient.valid(displayWallet) ? "\(displayWallet.prefix(6))…\(displayWallet.suffix(4))" : "Add wallet" }
     var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     var refreshTask: Task<Void, Never>?
     var requestID = UUID()
@@ -28,6 +31,7 @@ import QuartzCore
     var scheme: ColorScheme? { theme == "system" ? nil : theme == "dark" ? .dark : .light }
     var sourceDate: Date? { positions.compactMap(\.now_ts).min().map(Date.init(timeIntervalSince1970:)) }
     func expand(_ value: Bool) {
+        if !value { didDismiss?() }
         guard expanded != value else { resize?(); return }
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) { expanded = value }
         resize?()
@@ -88,6 +92,8 @@ final class IslandPanel: NSPanel {
     var screenObserver: NSObjectProtocol?
     var hosting: NSHostingView<IslandView>?
     var escapeMonitor: Any?
+    var hoverGate = HoverGate()
+    var hoverPoll: Task<Void, Never>?
     var screen: NSScreen { NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main ?? NSScreen.screens[0] }
     var cameraWidth: CGFloat {
         if let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea { return r.minX - l.maxX }
@@ -100,7 +106,22 @@ final class IslandPanel: NSPanel {
         panel.level = .statusBar; panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false; panel.hidesOnDeactivate = false
         store.resize = { [weak self] in self?.layout(animated: true) }
+        store.didDismiss = { [weak self] in self?.hoverGate.dismiss() }
         layout(); panel.orderFrontRegardless()
+        hoverPoll = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+                guard !Task.isCancelled, let self else { return }
+                guard !self.store.expanded else { continue }
+                // Fixed expanded-header bounds, independent of the shrinking NSPanel frame.
+                let width = max(400, self.cameraWidth + 160)
+                let height = max(32, self.screen.safeAreaInsets.top) + 8
+                let region = NSRect(x: self.screen.frame.midX - width / 2, y: self.screen.frame.maxY - height, width: width, height: height)
+                if self.hoverGate.update(inside: region.contains(NSEvent.mouseLocation), now: ProcessInfo.processInfo.systemUptime) {
+                    self.store.expand(true)
+                }
+            }
+        }
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, event.keyCode == 53, self.store.expanded else { return event }
             self.store.expand(false)
@@ -139,6 +160,7 @@ final class IslandPanel: NSPanel {
         if store.expanded { panel.makeKey() } else { panel.resignKey() }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        hoverPoll?.cancel()
         if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
     }
     @objc func show() { store.expand(true); panel.makeKeyAndOrderFront(nil) }

@@ -20,3 +20,7 @@ Rebuilt successfully. Inspected native light/dark layouts, wallet and appearance
 ## Wider range / keyboard refinement
 
 Range validation passed for normal padding, prices above and below LP bounds, zero-floor domains, invalid bounds, and infinite prices. Native dark-mode QA verified the widened band, separate domain/LP labels, bundled icons, arrow-free rows, and Escape collapse followed by reopen. Dark panel and header now share pure black and the native shadow is disabled.
+
+## Dismissal regression and wallet identity
+
+Verified a close-control click remains collapsed with the cursor left over the notch. HoverGate regression tests cover a stationary cursor for 60 seconds, leaving and re-entering, the 180 ms entry delay, and repeated dismissal. WalletIconData matches upstream blo JavaScript pixel and HSL palette reference vectors for the example wallet; capitalization is normalized and different addresses produce different output. Native screenshot inspected for identicon/short address, green unclaimed fees, and positive P&L coloring.

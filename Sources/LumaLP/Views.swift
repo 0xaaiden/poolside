@@ -2,7 +2,7 @@ import SwiftUI
 
 private let gain = Color(nsColor: NSColor(name: nil) { appearance in
     appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        ? NSColor(srgbRed: 0.60, green: 0.75, blue: 0.65, alpha: 1)
+        ? NSColor(srgbRed: 0.40, green: 0.81, blue: 0.55, alpha: 1)
         : NSColor(srgbRed: 0.22, green: 0.40, blue: 0.29, alpha: 1)
 })
 private let surface = Color(nsColor: NSColor(name: nil) { appearance in
@@ -12,10 +12,10 @@ private let surface = Color(nsColor: NSColor(name: nil) { appearance in
 })
 private let loss = Color(nsColor: NSColor(name: nil) { appearance in
     appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        ? NSColor(srgbRed: 0.83, green: 0.59, blue: 0.55, alpha: 1)
+        ? NSColor(srgbRed: 0.92, green: 0.40, blue: 0.39, alpha: 1)
         : NSColor(srgbRed: 0.61, green: 0.28, blue: 0.24, alpha: 1)
 })
-private func tone(_ value: Decimal?) -> Color { (value ?? 0) < 0 ? loss : gain }
+private func tone(_ value: Decimal?) -> Color { guard let value, value != 0 else { return .secondary }; return value < 0 ? loss : gain }
 
 struct QuietButton: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -39,49 +39,55 @@ struct IconButton: View {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: hover)
     }
 }
-struct LumaMark: View {
+struct WalletAvatar: View {
+    let address: String
     var body: some View {
-        ZStack {
-            Circle().trim(from: 0.08, to: 0.92).stroke(lineWidth: 1).frame(width: 14, height: 14).rotationEffect(.degrees(-30)).offset(x: -4)
-            Circle().trim(from: 0.08, to: 0.92).stroke(lineWidth: 1).frame(width: 14, height: 14).rotationEffect(.degrees(150)).offset(x: 4)
-        }.frame(width: 24, height: 18).accessibilityHidden(true)
+        Group {
+            if RevertClient.valid(address) {
+                let icon = WalletIconData(address: address)
+                Canvas { context, size in
+                    let side = size.width / 8
+                    for y in 0..<8 {
+                        for x in 0..<8 {
+                            let hsl = icon.palette[icon.pixels[y * 4 + min(x, 7 - x)]]
+                            let light = Double(hsl[2]) / 100, saturation = Double(hsl[1]) / 100
+                            let brightness = light + saturation * min(light, 1 - light)
+                            let hsvSaturation = brightness == 0 ? 0 : 2 * (1 - light / brightness)
+                            let color = Color(hue: Double(hsl[0]) / 360, saturation: hsvSaturation, brightness: brightness)
+                            context.fill(Path(CGRect(x: CGFloat(x) * side, y: CGFloat(y) * side, width: side, height: side)), with: .color(color), style: FillStyle(antialiased: false))
+                        }
+                    }
+                }.clipShape(RoundedRectangle(cornerRadius: 3))
+            } else { Image(systemName: "person.crop.circle").resizable().scaledToFit().foregroundStyle(.secondary) }
+        }.accessibilityHidden(true)
     }
 }
 struct IslandView: View {
     @ObservedObject var store: Store
     let cameraWidth: CGFloat
     let topHeight: CGFloat
-    @State private var hoverTask: Task<Void, Never>?
-    @State private var inhibitHover = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     var width: CGFloat { max(400, cameraWidth + 160) }
     var bodyHeight: CGFloat { store.onboarding ? 326 : store.selected != nil ? 430 : 320 }
-    private func toggle() { inhibitHover = true; hoverTask?.cancel(); store.expand(!store.expanded) }
+    private func toggle() { store.expand(!store.expanded) }
     var body: some View {
         VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     Button(action: toggle) {
                     HStack(spacing: 6) {
-                        LumaMark().scaleEffect(0.65).frame(width: 18)
-                        Text(store.expanded ? "luma" : store.demo ? "demo" : "\(store.positions.count) LP").font(.system(size: 10, weight: .medium))
+                        WalletAvatar(address: store.displayWallet).frame(width: 14, height: 14)
+                        Text(store.shortWallet).font(.system(size: 8, weight: .medium, design: .monospaced)).lineLimit(1)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
-                    }.accessibilityLabel("Luma overview")
+                    }.accessibilityLabel("Wallet \(store.shortWallet)")
                     Color.clear.frame(width: cameraWidth)
                     Button(action: toggle) {
                     Group {
                         if store.expanded { Text("esc to close").font(.system(size: 9)).foregroundStyle(.white.opacity(0.38)) }
-                        else { Text(store.error != nil ? "stale" : store.onboarding ? "set up" : money(store.pnl, signed: true)).font(.system(size: 10, weight: .medium)).monospacedDigit() }
+                        else { Text(store.error != nil ? "stale" : store.onboarding ? "set up" : money(store.pnl, signed: true)).font(.system(size: 10, weight: .medium)).monospacedDigit().foregroundStyle(store.error != nil ? loss : tone(store.pnl)) }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
                     }.accessibilityLabel(store.expanded ? "Collapse Luma" : "Expand Luma")
                 }.foregroundStyle(.white.opacity(0.7)).frame(height: topHeight + (store.expanded ? 0 : 4)).background(.black)
                 .buttonStyle(.plain)
-                .onHover { inside in
-                    hoverTask?.cancel()
-                    if !inside { inhibitHover = false }
-                    if inside && !store.expanded && !inhibitHover {
-                        hoverTask = Task { try? await Task.sleep(for: .milliseconds(180)); if !Task.isCancelled { store.expand(true) } }
-                    }
-                }
             if store.expanded {
                 ZStack(alignment: .top) {
                     if store.onboarding { Onboarding(store: store).transition(.opacity.combined(with: .offset(y: reduceMotion ? 0 : 5))) }
@@ -97,9 +103,7 @@ struct IslandView: View {
             .preferredColorScheme(store.scheme).tint(.primary).buttonStyle(QuietButton())
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.selected)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.onboarding)
-            .onChange(of: store.expanded) { _, expanded in
-                if !expanded { inhibitHover = true; hoverTask?.cancel() }
-            }
+
     }
 }
 struct BenchmarkSwitch: View {
@@ -129,7 +133,7 @@ struct Dashboard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text(store.demo ? "Example wallet" : "\(store.wallet.prefix(6))…\(store.wallet.suffix(4))").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                Text(store.demo ? "Liquidity · example" : "Liquidity").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
                 Spacer()
                 IconButton(symbol: "slider.horizontal.3", label: "Wallet and appearance") { store.settings() }
             }.padding(.bottom, 8)
@@ -140,7 +144,7 @@ struct Dashboard: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Unclaimed").font(.system(size: 9)).foregroundStyle(.tertiary)
-                    Text(ready ? money(store.fees) : "—").font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
+                    Text(ready ? money(store.fees) : "—").foregroundStyle(ready && store.fees != nil ? gain : .secondary).font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
                 }
             }
             HStack(spacing: 5) {
@@ -327,7 +331,7 @@ struct DetailView: View {
                             Text("\(p.network.capitalized) · \(p.exchange == "uniswapv4" ? "Uniswap v4" : p.exchange) · \(p.fee_tier.map { number(Decimal($0) / 10000) + "%" } ?? "—")")
                         }.font(.system(size: 10)).foregroundStyle(.tertiary)
                     }
-                    HStack { metric("Pooled", money(p.underlying_value?.value)); Spacer(); metric("Unclaimed", money(p.unclaimed), trailing: true) }
+                    HStack { metric("Pooled", money(p.underlying_value?.value)); Spacer(); metric("Unclaimed", money(p.unclaimed), trailing: true, color: p.unclaimed == nil ? .secondary : gain) }
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(p.in_range == true ? "In range" : "Out of range / unknown").foregroundStyle(p.in_range == true ? gain : loss)
@@ -345,7 +349,7 @@ struct DetailView: View {
                     HStack { Text("Lifetime performance").font(.system(size: 10)).foregroundStyle(.secondary); Spacer(); BenchmarkSwitch(store: store) }
                     HStack {
                         metric("P&L", money(p.performance?[store.benchmark]?.pnl?.value, signed: true), color: tone(p.performance?[store.benchmark]?.pnl?.value))
-                        Spacer(); metric("Pool P&L", money(p.performance?[store.benchmark]?.pool_pnl?.value, signed: true), trailing: true)
+                        Spacer(); metric("Pool P&L", money(p.performance?[store.benchmark]?.pool_pnl?.value, signed: true), trailing: true, color: tone(p.performance?[store.benchmark]?.pool_pnl?.value))
                     }
                     HStack {
                         metric("ROI", p.performance?[store.benchmark]?.roi.map { number($0.value) + "%" } ?? "—")
@@ -378,7 +382,7 @@ struct Onboarding: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                LumaMark().foregroundStyle(.secondary).offset(x: appeared || reduceMotion ? 0 : -4)
+                WalletAvatar(address: store.displayWallet).frame(width: 24, height: 24).offset(x: appeared || reduceMotion ? 0 : -4)
                 Spacer()
                 HStack(spacing: 4) { ForEach(0..<3) { i in Capsule().fill(.primary.opacity(store.step == i ? 0.55 : 0.1)).frame(width: store.step == i ? 13 : 4, height: 3) } }.accessibilityLabel("Step \(store.step + 1) of 3")
             }.padding(.bottom, 22)
