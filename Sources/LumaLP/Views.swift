@@ -296,9 +296,9 @@ struct Footer: View {
                 if store.demo { Text("Saved example · Sep 20") }
                 else if let date = store.sourceDate {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text("\(context.date.timeIntervalSince(date) > 300 ? "Stale · " : "")Revert · \(date.formatted(date: .omitted, time: .shortened))")
+                        Text("\(context.date.timeIntervalSince(date) > 300 ? "Stale · " : "")Last updated \(date.formatted(date: context.date.timeIntervalSince(date) > 86400 ? .abbreviated : .omitted, time: .shortened))")
                     }
-                } else { Text("Revert Finance") }
+                } else { Text("Last updated —") }
                 Spacer()
                 if store.loading { ProgressView().controlSize(.mini).scaleEffect(0.65).frame(width: 14, height: 14) }
                 else if store.demo { Button("Use wallet") { store.settings() } }
