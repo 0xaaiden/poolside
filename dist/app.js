@@ -13,3 +13,20 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!dialog.ope
 const detail=document.querySelector('#position-detail');
 const details=['Unclaimed fees <strong>$132.43</strong> · USD P&L <strong>+$119.95</strong>','Unclaimed fees <strong>$8.29</strong> · USD P&L <span class="negative">−$0.26</span>'];
 document.querySelectorAll('[data-position]').forEach(button=>{button.setAttribute('aria-controls','position-detail');button.setAttribute('aria-expanded','false');button.addEventListener('click',()=>{const index=button.dataset.position;const same=detail.dataset.active===index&&!detail.hidden;detail.hidden=same;detail.dataset.active=index;detail.innerHTML=details[Number(index)];document.querySelectorAll('[data-position]').forEach(row=>row.setAttribute('aria-expanded',String(row===button&&!same)));});});
+
+// Scroll layers follow the page without capturing wheel or touch input.
+const hero=document.querySelector('.hero');
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+let parallaxFrame=0;
+function renderParallax(){
+  parallaxFrame=0;
+  const distance=reducedMotion.matches?0:Math.max(0,Math.min(-hero.getBoundingClientRect().top,hero.offsetHeight));
+  const strength=window.innerWidth<=650?.08:.18;
+  hero.style.setProperty('--scene-offset',`${distance*strength}px`);
+  hero.style.setProperty('--preview-offset',`${distance*-.045}px`);
+}
+function scheduleParallax(){if(!parallaxFrame)parallaxFrame=requestAnimationFrame(renderParallax);}
+window.addEventListener('scroll',scheduleParallax,{passive:true});
+window.addEventListener('resize',scheduleParallax,{passive:true});
+reducedMotion.addEventListener('change',scheduleParallax);
+scheduleParallax();
