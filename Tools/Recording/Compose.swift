@@ -21,9 +21,22 @@ let timings: [Double] = ((try? String(contentsOf: dir.appendingPathComponent("ti
     .split(separator: "\n").compactMap { Double($0.split(separator: " ").first ?? "") }
 let heights: [Double] = ((try? String(contentsOf: dir.appendingPathComponent("timings.txt"), encoding: .utf8)) ?? "")
     .split(separator: "\n").compactMap { line in let p = line.split(separator: " "); return p.count > 2 ? Double(p[2]) : nil }
-// Demo.swift expands at 1.4 s after launch; the first frame taller than the strip marks that moment.
-let firstExpanded = zip(timings, heights).first { $0.1 > 80 }?.0 ?? 1.4
-let timeOffset = firstExpanded - 1.4
+// Demo.swift expands at 1.4 s and collapses at 11.0 s after launch. The first frame taller than the
+// strip and the first frame shrinking again mark those moments in recorder time; the pointer's clock
+// is interpolated between the two so it stays aligned even if the app's timeline drifted.
+let pairs = Array(zip(timings, heights))
+let expandedAt = pairs.first { $0.1 > 80 }?.0 ?? 1.4
+let collapsedAt: Double = {
+    guard let peakIndex = pairs.lastIndex(where: { $0.1 >= 600 }) else { return 11.0 + (expandedAt - 1.4) }
+    return pairs[min(peakIndex + 1, pairs.count - 1)].0
+}()
+let timeOffset = expandedAt - 1.4
+let drift = (collapsedAt - 11.0) - timeOffset
+/// Recorder time to demo time, correcting for drift between the two anchors.
+func demoTime(_ recorderT: Double) -> Double {
+    let progress = min(1, max(0, (recorderT - expandedAt) / max(0.001, collapsedAt - expandedAt)))
+    return recorderT - timeOffset - drift * progress
+}
 
 // Layout in output pixels, then scaled by S for the 2x scene. A full 16:10 MacBook with its base.
 let S: CGFloat = 2
@@ -159,10 +172,10 @@ let cursorPath: CGPath = {
     return p
 }()
 
-// Zoom: full laptop at rest, then in on the notch while the panel is open.
+// Zoom: full laptop at rest, in on the notch while the panel is open, out again once it has closed.
 func zoom(at t: Double) -> CGFloat {
     let zoomIn = 1 + 0.95 * smooth((t - 0.5) / 1.4)
-    let zoomOut = 1 + 0.95 * (1 - smooth((t - 11.3) / 1.3))
+    let zoomOut = 1 + 0.95 * (1 - smooth((t - 11.45) / 1.2))
     return CGFloat(min(zoomIn, zoomOut))
 }
 
@@ -182,9 +195,9 @@ writer.startWriting(); writer.startSession(atSourceTime: .zero)
 
 let preRoll = Int(fps) / 2, postRoll = Int(fps)
 var sequence: [(file: String, t: Double)] = []
-for i in 0..<preRoll { sequence.append((files[0], (timings.first ?? 0) - Double(preRoll - i) / Double(fps) - timeOffset)) }
-for (i, f) in files.enumerated() { sequence.append((f, (i < timings.count ? timings[i] : Double(i) / Double(fps)) - timeOffset)) }
-for i in 0..<postRoll { sequence.append((files.last!, (timings.last ?? 0) + Double(i + 1) / Double(fps) - timeOffset)) }
+for i in 0..<preRoll { sequence.append((files[0], demoTime((timings.first ?? 0) - Double(preRoll - i) / Double(fps)))) }
+for (i, f) in files.enumerated() { sequence.append((f, demoTime(i < timings.count ? timings[i] : Double(i) / Double(fps)))) }
+for i in 0..<postRoll { sequence.append((files.last!, demoTime((timings.last ?? 0) + Double(i + 1) / Double(fps)))) }
 
 let frameContext = context(Int(W), Int(H))
 let panelScale = pointScale / 2   // captures are 2x
@@ -238,4 +251,4 @@ input.markAsFinished()
 let group = DispatchGroup(); group.enter()
 writer.finishWriting { group.leave() }
 group.wait()
-print("wrote \(out.path): \(frameIndex) frames, \(Double(frameIndex) / Double(fps)) s, time offset \(String(format: "%.2f", timeOffset)) s, status \(writer.status.rawValue)\(writer.error.map { " error \($0)" } ?? "")")
+print("wrote \(out.path): \(frameIndex) frames, \(Double(frameIndex) / Double(fps)) s, expand at \(String(format: "%.2f", expandedAt)) s, collapse at \(String(format: "%.2f", collapsedAt)) s, drift \(String(format: "%.2f", drift)) s, status \(writer.status.rawValue)\(writer.error.map { " error \($0)" } ?? "")")

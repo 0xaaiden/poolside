@@ -27,9 +27,10 @@ import SwiftUI
                 (11.0, { store.expand(false) }),
                 (12.6, { NSApp.terminate(nil) }),
             ]
-            var elapsed = 0.0
+            // Deadlines are absolute so sleep latency does not accumulate across steps.
+            let start = ContinuousClock.now
             for (at, action) in steps {
-                try? await Task.sleep(for: .seconds(at - elapsed)); elapsed = at
+                try? await Task.sleep(until: start + .seconds(at), tolerance: .milliseconds(2), clock: .continuous)
                 action()
             }
         }
