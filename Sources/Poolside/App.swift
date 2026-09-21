@@ -320,6 +320,7 @@ final class IslandPanel: NSPanel {
         }
         status.menu = menu
         if !store.onboarding { store.refresh(); store.startPolling() }
+        DemoRecording.start(store: store)
     }
     func pointerMoved() {
         guard !store.expanded else { return }
