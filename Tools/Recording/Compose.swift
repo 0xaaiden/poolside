@@ -199,11 +199,35 @@ for i in 0..<preRoll { sequence.append((files[0], demoTime((timings.first ?? 0) 
 for (i, f) in files.enumerated() { sequence.append((f, demoTime(i < timings.count ? timings[i] : Double(i) / Double(fps)))) }
 for i in 0..<postRoll { sequence.append((files.last!, demoTime((timings.last ?? 0) + Double(i + 1) / Double(fps)))) }
 
+/// Row of the identicon in the panel header. A window capture taken mid-resize can show the
+/// content shifted by a dozen pixels for one frame; a jump in this row identifies such frames.
+func headerY(_ image: CGImage) -> Int? {
+    guard let data = image.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return nil }
+    let bpr = image.bytesPerRow, bpp = image.bitsPerPixel / 8
+    let alphaFirst = [.premultipliedFirst, .first, .noneSkipFirst].contains(image.alphaInfo)
+    for y in 0..<min(90, image.height) {
+        for x in stride(from: 20, to: min(120, image.width), by: 2) {
+            let p = bytes + y * bpr + x * bpp
+            let (r, g, b) = alphaFirst ? (Int(p[1]), Int(p[2]), Int(p[3])) : (Int(p[0]), Int(p[1]), Int(p[2]))
+            if g > 110 && g > r + 40 && g > b + 40 { return y }
+        }
+    }
+    return nil
+}
+
 let frameContext = context(Int(W), Int(H))
 let panelScale = pointScale / 2   // captures are 2x
 var frameIndex: Int64 = 0
+var lastGood: (image: CGImage, headerY: Int?)? = nil
+var replaced = 0
 for (file, t) in sequence {
-    guard let panel = NSImage(contentsOf: dir.appendingPathComponent(file))?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
+    guard var panel = NSImage(contentsOf: dir.appendingPathComponent(file))?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
+    let y = headerY(panel)
+    if let last = lastGood, let y, let lastY = last.headerY, abs(y - lastY) > 5 {
+        panel = last.image; replaced += 1        // hold the previous frame over a mid-resize capture
+    } else {
+        lastGood = (panel, y)
+    }
     frameContext.draw(scene, in: CGRect(x: 0, y: 0, width: W, height: H))
     let pw = CGFloat(panel.width) * panelScale, ph = CGFloat(panel.height) * panelScale
     let panelRect = CGRect(x: display.midX - pw / 2, y: display.minY, width: pw, height: ph)
@@ -251,4 +275,4 @@ input.markAsFinished()
 let group = DispatchGroup(); group.enter()
 writer.finishWriting { group.leave() }
 group.wait()
-print("wrote \(out.path): \(frameIndex) frames, \(Double(frameIndex) / Double(fps)) s, expand at \(String(format: "%.2f", expandedAt)) s, collapse at \(String(format: "%.2f", collapsedAt)) s, drift \(String(format: "%.2f", drift)) s, status \(writer.status.rawValue)\(writer.error.map { " error \($0)" } ?? "")")
+print("wrote \(out.path): \(frameIndex) frames, \(Double(frameIndex) / Double(fps)) s, \(replaced) mid-resize frames held, expand at \(String(format: "%.2f", expandedAt)) s, collapse at \(String(format: "%.2f", collapsedAt)) s, drift \(String(format: "%.2f", drift)) s, status \(writer.status.rawValue)\(writer.error.map { " error \($0)" } ?? "")")
