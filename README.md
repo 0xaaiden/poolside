@@ -6,23 +6,16 @@ A native macOS notch prototype for read-only Revert position analytics. SwiftUI 
 
 Expand, open a position, switch benchmarks, close — [watch the demo](docs/poolside-demo.mp4). Scripted and recorded by `Tools/Recording/`.
 
+## Download
+
+Grab the latest build from [Releases](https://github.com/0xaaiden/poolside/releases) — Apple silicon, macOS 14+, ad-hoc signed. On first launch: right-click the app → **Open** (or `xattr -d com.apple.quarantine Poolside.app`) since it isn't notarized.
+
 ## Repository layout
 
 - `Sources/Poolside/` — native macOS app.
 - `Validation/` — native validation checks.
-- `dist/` — complete Last Light landing page, fonts, artwork, and beta download.
-- `design/` — design explorations, generation prompts, and source artwork.
-- `docs/` — API and product analysis.
+- `docs/` — API and product analysis, demo media.
 - `Tools/` and `license.sh` — developer-side Pro key issuing tool (never shipped in the app); `Tools/Recording/` — scripted ScreenCaptureKit demo capture (`bash Tools/Recording/record-demo.sh out.mp4`).
-- `.openai/hosting.json` — existing Sites deployment identity.
-
-The working checkout is `/Users/aiden/Desktop/Poolside`. Both the app and landing-page commit histories are retained.
-
-## Landing page
-
-Serve locally with `python3 -m http.server 5178 --directory dist`, then open http://localhost:5178. No package installation or build is needed. The current page is deployed at https://poolside-last-light.azizaiden.chatgpt.site.
-
-The interactive preview uses illustrative data. Download buttons serve the bundled early macOS beta, with compatibility and notarization status disclosed before download.
 
 ## Run
 

@@ -32,4 +32,4 @@ POOLSIDE_DEMO_FIXTURE="$PWD/$BUILD/fixture.json" ../Poolside.app/Contents/MacOS/
 "$BUILD/recorder" "$BUILD/frames" "$FPS" 15
 wait || true
 open ../Poolside.app || true
-"$BUILD/compose" "$BUILD/frames" dist/assets/last-light-v2.webp "$OUT" 1920 1080 "$FPS"
+"$BUILD/compose" "$BUILD/frames" Tools/Recording/backdrop.webp "$OUT" 1920 1080 "$FPS"
