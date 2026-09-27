@@ -2,9 +2,9 @@
 
 A native macOS notch prototype for read-only Revert position analytics. SwiftUI interface, AppKit panel, no third-party dependencies. Requires macOS 14+. The included app build targets Apple silicon.
 
-<video src="https://github.com/0xaaiden/poolside/raw/main/docs/poolside-demo.mp4" controls muted playsinline width="720"></video>
+![Poolside demo](docs/poolside-demo.gif)
 
-[Watch the demo](docs/poolside-demo.mp4) — expand, open a position, switch benchmarks, close. Scripted and recorded by `Tools/Recording/`.
+Expand, open a position, switch benchmarks, close. Scripted and recorded by `Tools/Recording/` — [full MP4](docs/poolside-demo.mp4).
 
 ## Repository layout
 
