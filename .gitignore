@@ -11,3 +11,4 @@ xcuserdata/
 .env
 .env.*
 .license/
+.claude/
