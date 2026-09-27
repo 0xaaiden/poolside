@@ -59,3 +59,7 @@ Engineering details (panel motion, hover gate, icon pipeline, large-wallet tunin
 ## Status
 
 Prototype: verified against Uniswap v4 and a live v3 position; other protocols decode leniently and skip unreadable rows. No chart history, fiat conversion or transactions yet. See [VALIDATION.md](VALIDATION.md) for what has and hasn't been QA'd.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Third-party attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
