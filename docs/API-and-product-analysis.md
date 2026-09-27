@@ -1,4 +1,4 @@
-# Poolside — Revert API and product design
+# Poolside - Revert API and product design
 
 ## What the example actually returns
 
@@ -17,8 +17,8 @@ The response is `{success, data, pagination, exited_count}`. `data` contains **t
 | Pool P&L vs USD | +$120.01 | +$0.08 | +$120.10 |
 | USD ROI | 13.44% | −0.0262% | Do not sum |
 | Fee APR, USD benchmark | 1,125.54% | 19.22% | Do not average naively |
-| Position age | 4.81 days | 15.80 days | — |
-| Encoded fee tier | 5000 → 0.50% | 3000 → 0.30% | — |
+| Position age | 4.81 days | 15.80 days | - |
+| Encoded fee tier | 5000 → 0.50% | 3000 → 0.30% | - |
 
 The token symbols and network above are API metadata. They are not independent verification of token legitimacy, redemption rights, or underlying asset ownership.
 
