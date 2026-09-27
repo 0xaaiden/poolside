@@ -47,6 +47,7 @@ import CryptoKit
         try checkLicense()
         try checkClosed(URL(fileURLWithPath: CommandLine.arguments[2]))
         try checkWalletBook()
+        try checkExtras(data)
         checkSpring()
         checkMotion()
         checkHover()
@@ -89,7 +90,7 @@ import CryptoKit
         assert(!partial.pnl["usd"]!.complete && partial.pnl["usd"]!.value == positions[1].performance?["usd"]?.pnl?.value)
         let url = try RevertClient.url(wallet: RevertClient.sampleWallet, cursor: "1789447492_2726168")
         assert(URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!.contains(URLQueryItem(name: "cursor", value: "1789447492_2726168")))
-        print("PASS: fixture decoding, closed positions and realized totals, wallet book add/select/remove/migration, license signing/verification/expiry/tamper/persistence, entitlements, lenient integers and booleans, skipped rows, named decoding errors, full-range positions, exact totals, cached totals, partial sums, token lookup, P&L benchmarks, mixed numeric types, missing fields, ranges, spring motion, panel retargeting, hover gate, wallet validation, cursor encoding.")
+        print("PASS: fixture decoding, closed positions and realized totals, wallet book add/select/remove/migration, license signing/verification/expiry/tamper/persistence, entitlements, lenient integers and booleans, skipped rows, named decoding errors, full-range positions, exact totals, cached totals, partial sums, token lookup, P&L benchmarks, mixed numeric types, missing fields, ranges, spring motion, panel retargeting, hover gate, wallet validation, cursor encoding, gas costs, range-edge warnings, privacy mask, wallet labels.")
     }
     /// Live Uniswap v3 rows differ from the v4 fixture: fee_tier is "100", and other protocols may
     /// stringify further fields. One unreadable row is skipped and counted, never fatal.
@@ -186,6 +187,48 @@ import CryptoKit
         defaults.set(c, forKey: WalletBook.activeKey)
         assert(WalletBook.load(from: defaults).active == a)
         assert(WalletBook(wallets: [a, "junk", a.uppercased()], active: nil).wallets == [a], "invalid and duplicate entries are dropped on load")
+    }
+    /// Gas costs, the near-boundary warning, the privacy mask and wallet labels.
+    static func checkExtras(_ data: Data) throws {
+        let positions = try require(try RevertClient.decode(data).data)
+        // Gas spent is the negated sum of gas-costs flow amounts priced at each entry's USD quote.
+        let gas = try require(positions[0].gasSpentUSD)
+        assert(abs(NSDecimalNumber(decimal: gas).doubleValue - 0.0675) < 0.001, "fixture gas ≈ $0.07")
+        assert(positions[0].performance?["usd"]?.il != nil, "impermanent loss decodes inside performance")
+        assert(positions.allSatisfy { $0.nearEdge == nil }, "fixture prices sit comfortably inside their ranges")
+        // A price pressed against a bound flags that edge.
+        var json = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        var rows = json["data"] as! [[String: Any]]
+        rows[1]["price_lower"] = "761"
+        json["data"] = rows
+        var edged = try require(try RevertClient.decode(try JSONSerialization.data(withJSONObject: json)).data)
+        assert(edged[1].nearEdge == .lower, "within 8% of the lower bound warns")
+        rows[1]["price_lower"] = "700"; rows[1]["price_upper"] = "764"
+        json["data"] = rows
+        edged = try require(try RevertClient.decode(try JSONSerialization.data(withJSONObject: json)).data)
+        assert(edged[1].nearEdge == .upper, "within 8% of the upper bound warns")
+        // The privacy mask hides money and unit amounts everywhere; missing stays missing, prices are public.
+        DisplayMask.on = true
+        assert(money(Decimal(5)) == "•••" && money(Sum(value: 5, complete: true), signed: true) == "•••" && units(Decimal(1)) == "•••")
+        assert(money(nil) == "—" && units(nil) == "—" && price(Decimal(5)) == "5.000")
+        DisplayMask.on = false
+        assert(money(Decimal(5), signed: true) == "+$5.00")
+        // Wallet labels: trimmed, capped, case-insensitive, cleared on blank, persisted, dropped on remove.
+        let a = RevertClient.sampleWallet, b = "0xD360EcB91406717Ad13C4fae757b69B417E2Af6b"
+        let suite = "poolside.validation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var book = WalletBook(wallets: [a], active: a)
+        book.rename(a, to: "  Main vault  ")
+        assert(book.label(a.uppercased()) == "Main vault")
+        book.rename(a, to: String(repeating: "x", count: 40))
+        assert(book.label(a)!.count == 24, "labels are capped at 24 characters")
+        book.rename(b, to: "Nope"); assert(book.label(b) == nil, "untracked wallets are ignored")
+        book.rename(a, to: "Main"); book.save(to: defaults)
+        assert(WalletBook.load(from: defaults).label(a) == "Main")
+        var removed = book; removed.remove(a); removed.save(to: defaults)
+        assert(WalletBook.load(from: defaults).label(a) == nil && defaults.dictionary(forKey: WalletBook.labelsKey) == nil)
+        book.rename(a, to: ""); assert(book.label(a) == nil, "a blank name clears the label")
     }
     static func checkLicense() throws {
         let signer = Curve25519.Signing.PrivateKey()

@@ -32,6 +32,10 @@ import UserNotifications
     var licenseMessage: String?
     var launchAtLogin = SMAppService.mainApp.status == .enabled
     var alertsEnabled = UserDefaults.standard.bool(forKey: "alerts")
+    /// Privacy mask: every money and unit figure renders as ••• while on.
+    var masked = UserDefaults.standard.bool(forKey: "masked") {
+        didSet { UserDefaults.standard.set(masked, forKey: "masked"); DisplayMask.on = masked }
+    }
     var entitlements: Entitlements { Entitlements(tier: license?.tier ?? .free) }
     var expanded = false
     var revealProgress: Double = 0
@@ -54,11 +58,16 @@ import UserNotifications
         // First launch needs the onboarding panel open; later launches start as a quiet strip.
         expanded = onboarding
         revealProgress = onboarding ? 1 : 0
+        DisplayMask.on = masked
     }
     var wallet: String { book.active ?? "" }
     var wallets: [String] { book.wallets }
     var displayWallet: String { demo ? RevertClient.sampleWallet : wallet }
+    /// A wallet's custom label, or its shortened address when unlabeled.
+    func name(for address: String) -> String { book.label(address) ?? Self.short(address) }
     var shortWallet: String { Self.short(displayWallet) }
+    var displayName: String { name(for: displayWallet) }
+    func renameWallet(_ address: String, to name: String) { book.rename(address, to: name) }
     static func short(_ address: String) -> String { RevertClient.valid(address) ? "\(address.prefix(6))…\(address.suffix(4))" : "Add wallet" }
     var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     var pooled: Sum { totals.pooled }
@@ -243,7 +252,7 @@ import UserNotifications
             guard let was = previous[p.id], was != p.inRange else { continue }
             let content = UNMutableNotificationContent()
             content.title = p.inRange ? "\(p.pair) is back in range" : "\(p.pair) left its range"
-            content.body = "\(Self.short(wallet)) · \(p.network.capitalized) · now \(price(p.pool_price?.value)) · pooled \(money(p.underlying_value?.value))"
+            content.body = "\(name(for: wallet)) · \(p.network.capitalized) · now \(price(p.pool_price?.value)) · pooled \(money(p.underlying_value?.value))"
             content.sound = .default
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "range-\(p.id)", content: content, trigger: nil))
         }

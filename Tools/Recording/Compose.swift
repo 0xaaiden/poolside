@@ -27,8 +27,8 @@ let heights: [Double] = ((try? String(contentsOf: dir.appendingPathComponent("ti
 let pairs = Array(zip(timings, heights))
 let expandedAt = pairs.first { $0.1 > 80 }?.0 ?? 1.4
 let collapsedAt: Double = {
-    guard let peakIndex = pairs.lastIndex(where: { $0.1 >= 600 }) else { return 11.0 + (expandedAt - 1.4) }
-    return pairs[min(peakIndex + 1, pairs.count - 1)].0
+    // The strip is ~28 px tall; expanded content never dips to it, so this is a stable anchor.
+    pairs.first { $0.0 > expandedAt + 2 && $0.1 <= 80 }?.0 ?? 11.0 + (expandedAt - 1.4)
 }()
 let timeOffset = expandedAt - 1.4
 let drift = (collapsedAt - 11.0) - timeOffset

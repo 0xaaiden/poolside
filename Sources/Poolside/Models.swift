@@ -175,6 +175,17 @@ struct Token: Decodable, Sendable {
     let price: Amount?
     let decimals: Int?
 }
+/// One entry of a position's cash-flow history. Only the gas-cost outflows are used, priced at each
+/// entry's native-token USD quote; other entry types carry no verified meaning for display.
+struct CashFlow: Decodable, Sendable {
+    let type: String?
+    let amount: Amount?
+    let prices: Prices?
+    struct Prices: Decodable, Sendable {
+        let native_token: Native?
+        struct Native: Decodable, Sendable { let usd: Amount? }
+    }
+}
 struct Performance: Decodable, Sendable {
     let pnl: Amount?
     let pool_pnl: Amount?
@@ -214,6 +225,7 @@ struct Position: Decodable, Identifiable, Sendable {
     let now_ts: Amount?
     let age: Amount?
     let autocompounding: Flag?
+    let cash_flows: [CashFlow]?
     let performance: [String: Performance]?
     var id: String { "\(network):\(exchange):\(pool):\(nft_id.map { String($0.value) } ?? "unknown")" }
     var inRange: Bool { in_range?.value == true }
@@ -239,6 +251,26 @@ struct Position: Decodable, Identifiable, Sendable {
     var rangeFraction: Double? {
         guard let p = pool_price?.value, let l = price_lower?.value, let u = price_upper?.value, u > l else { return nil }
         return min(1, max(0, NSDecimalNumber(decimal: (p - l) / (u - l)).doubleValue))
+    }
+    enum Edge: String, Sendable, Equatable { case lower, upper }
+    /// Within 8% of an LP bound while in range — the position earns but is close to falling out.
+    /// Full-range positions have no meaningful edge, and a missing range is never flagged.
+    var nearEdge: Edge? {
+        guard inRange, priceContext?.fullRange == false, let f = rangeFraction else { return nil }
+        if f <= 0.08 { return .lower }
+        if f >= 0.92 { return .upper }
+        return nil
+    }
+    /// USD spent on gas per Revert's cash-flow history. Gas entries are signed outflows priced in the
+    /// native token, so the displayed cost is the negated amount times each entry's USD quote.
+    var gasSpentUSD: Decimal? {
+        guard let cash_flows else { return nil }
+        var spent = Decimal(0), seen = false
+        for flow in cash_flows where flow.type == "gas-costs" {
+            guard let amount = flow.amount?.value, let usd = flow.prices?.native_token?.usd?.value else { continue }
+            spent += -amount * usd; seen = true
+        }
+        return seen ? spent : nil
     }
     var priceContext: PriceRangeContext? {
         guard let l = price_lower?.value, let u = price_upper?.value, let p = pool_price?.value else { return nil }
@@ -420,9 +452,11 @@ struct ClosedTotals: Equatable, Sendable {
 /// The tracked wallets and which one is showing. Addresses are compared case-insensitively; the
 /// first-typed casing is kept for display. Migrates the original single "wallet" default.
 struct WalletBook: Equatable, Sendable {
-    static let walletsKey = "wallets", activeKey = "wallet"
+    static let walletsKey = "wallets", activeKey = "wallet", labelsKey = "walletLabels"
     private(set) var wallets: [String] = []
     private(set) var active: String?
+    /// User-named labels keyed by the stored address casing; lookups are case-insensitive.
+    private(set) var labels: [String: String] = [:]
     init() {}
     init(wallets: [String], active: String?) {
         for w in wallets { _ = add(w, limit: Int.max) }
@@ -433,11 +467,25 @@ struct WalletBook: Equatable, Sendable {
     static func load(from defaults: UserDefaults = .standard) -> WalletBook {
         let saved = defaults.stringArray(forKey: walletsKey) ?? []
         let legacy = defaults.string(forKey: activeKey)
-        return WalletBook(wallets: saved.isEmpty ? [legacy].compactMap { $0 } : saved, active: legacy)
+        var book = WalletBook(wallets: saved.isEmpty ? [legacy].compactMap { $0 } : saved, active: legacy)
+        if let labels = defaults.dictionary(forKey: labelsKey) as? [String: String] {
+            book.labels = labels.filter { book.contains($0.key) && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+        return book
     }
     func save(to defaults: UserDefaults = .standard) {
         defaults.set(wallets, forKey: Self.walletsKey)
+        if labels.isEmpty { defaults.removeObject(forKey: Self.labelsKey) } else { defaults.set(labels, forKey: Self.labelsKey) }
         if let active { defaults.set(active, forKey: Self.activeKey) } else { defaults.removeObject(forKey: Self.activeKey) }
+    }
+    func label(_ address: String) -> String? {
+        labels.first { $0.key.lowercased() == address.lowercased() }?.value
+    }
+    /// Names a tracked wallet, or clears the label when the name is blank. Unknown addresses are ignored.
+    mutating func rename(_ address: String, to raw: String) {
+        let name = String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(24))
+        guard let existing = wallets.first(where: { $0.lowercased() == address.lowercased() }) else { return }
+        if name.isEmpty { labels.removeValue(forKey: existing) } else { labels[existing] = name }
     }
     func contains(_ address: String) -> Bool { wallets.contains { $0.lowercased() == address.lowercased() } }
     var isEmpty: Bool { wallets.isEmpty }
@@ -453,6 +501,7 @@ struct WalletBook: Equatable, Sendable {
     }
     mutating func remove(_ address: String) {
         wallets.removeAll { $0.lowercased() == address.lowercased() }
+        labels = labels.filter { $0.key.lowercased() != address.lowercased() }
         if active?.lowercased() == address.lowercased() { active = wallets.first }
     }
     mutating func select(_ address: String) {
@@ -483,11 +532,23 @@ func price(_ value: Decimal?, digits: Int = 3) -> String {
     if value >= Decimal(string: "1e30")! { return "∞" }
     return number(value, digits: digits)
 }
+/// Privacy mask. When on, formatted money and unit amounts render as ••• everywhere they appear —
+/// the panel, notifications and accessibility labels all pass through these helpers.
+enum DisplayMask {
+    nonisolated(unsafe) static var on = false
+}
 func money(_ value: Decimal?, signed: Bool = false) -> String {
     guard let value else { return "—" }
+    if DisplayMask.on { return "•••" }
     return (value < 0 ? "−" : signed && value > 0 ? "+" : "") + "$" + number(abs(value))
 }
 /// Partial sums are marked with ≈ rather than blanking the whole figure.
 func money(_ sum: Sum, signed: Bool = false) -> String {
     (sum.complete || sum.value == nil ? "" : "≈") + money(sum.value, signed: signed)
+}
+/// Token unit amounts. Balances hide under the mask like money; prices and percentages never do.
+func units(_ value: Decimal?, digits: Int = 4) -> String {
+    guard let value else { return "—" }
+    if DisplayMask.on { return "•••" }
+    return number(value, digits: digits)
 }

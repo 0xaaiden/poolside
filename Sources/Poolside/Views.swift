@@ -15,6 +15,12 @@ private let loss = Color(nsColor: NSColor(name: nil) { appearance in
         ? NSColor(srgbRed: 0.92, green: 0.40, blue: 0.39, alpha: 1)
         : NSColor(srgbRed: 0.61, green: 0.28, blue: 0.24, alpha: 1)
 })
+/// Amber for a position earning but close to an LP bound — between the green in-range and red out.
+private let warn = Color(nsColor: NSColor(name: nil) { appearance in
+    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        ? NSColor(srgbRed: 0.95, green: 0.74, blue: 0.30, alpha: 1)
+        : NSColor(srgbRed: 0.70, green: 0.47, blue: 0.06, alpha: 1)
+})
 private func tone(_ value: Decimal?) -> Color { guard let value, value != 0 else { return .secondary }; return value < 0 ? loss : gain }
 /// One curve for navigation, onboarding steps and benchmark selection, matching the native panel spring.
 private let motion = Animation.spring(response: Spring.panel.response, dampingFraction: Spring.panel.dampingFraction)
@@ -93,9 +99,9 @@ struct IslandView: View {
                     Button(action: toggle) {
                     HStack(spacing: 6) {
                         WalletAvatar(address: store.displayWallet).frame(width: 14, height: 14)
-                        Text(store.shortWallet).font(.system(size: 8, weight: .medium, design: .monospaced)).lineLimit(1)
+                        Text(store.displayName).font(.system(size: 8, weight: .medium, design: .monospaced)).lineLimit(1)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
-                    }.accessibilityLabel("Wallet \(store.shortWallet)")
+                    }.accessibilityLabel("Wallet \(store.displayName)")
                     Color.clear.frame(width: cameraWidth)
                     Button(action: toggle) {
                     Group {
@@ -187,7 +193,7 @@ struct WalletMenu: View {
             Menu {
                 ForEach(store.wallets, id: \.self) { address in
                     Button { store.selectWallet(address) } label: {
-                        HStack { Text(Store.short(address)); if address.lowercased() == store.wallet.lowercased() { Image(systemName: "checkmark") } }
+                        HStack { Text(store.name(for: address)); if address.lowercased() == store.wallet.lowercased() { Image(systemName: "checkmark") } }
                     }
                 }
                 Divider()
@@ -195,12 +201,12 @@ struct WalletMenu: View {
             } label: {
                 HStack(spacing: 5) {
                     WalletAvatar(address: store.wallet).frame(width: 11, height: 11)
-                    Text(store.shortWallet).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
+                    Text(store.displayName).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
                     if store.wallets.count > 1 { Image(systemName: "chevron.down").font(.system(size: 7, weight: .semibold)).foregroundStyle(.tertiary) }
                 }
             }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 .help(store.wallets.count > 1 ? "Switch wallet" : "Wallet")
-                .accessibilityLabel("Wallet \(store.shortWallet). \(store.wallets.count) tracked.")
+                .accessibilityLabel("Wallet \(store.displayName). \(store.wallets.count) tracked.")
         }
     }
 }
@@ -237,6 +243,7 @@ struct Dashboard: View {
                 if store.entitlements.tier == .pro { ProBadge() }
                 Spacer()
                 RefreshControl(store: store)
+                IconButton(symbol: store.masked ? "eye.slash" : "eye", label: store.masked ? "Show amounts" : "Hide amounts") { store.masked.toggle() }
                 IconButton(symbol: "slider.horizontal.3", label: "Wallets and appearance") { store.settings() }
             }.padding(.bottom, 8)
             DataNotice(store: store)
@@ -341,7 +348,7 @@ struct PositionRow: View {
                     if p.closed {
                         Text(p.closedDate.map { "closed \($0.formatted(date: .abbreviated, time: .omitted))" } ?? "closed").font(.system(size: 9)).foregroundStyle(.tertiary)
                     } else {
-                        RangeBar(context: p.priceContext, active: p.inRange).frame(width: 82, height: 12)
+                        RangeBar(context: p.priceContext, active: p.inRange, edge: p.nearEdge).frame(width: 82, height: 12)
                     }
                 }
             }
@@ -421,6 +428,7 @@ struct RangeMarker: Shape {
 struct RangeBar: View {
     let context: PriceRangeContext?
     let active: Bool
+    var edge: Position.Edge? = nil
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     var body: some View {
         Canvas(rendersAsynchronously: false) { g, size in
@@ -440,12 +448,12 @@ struct RangeBar: View {
         }
         .overlay {
             if let context {
-                RangeMarker(fraction: context.currentFraction).fill(active ? gain : loss)
+                RangeMarker(fraction: context.currentFraction).fill(active ? (edge == nil ? gain : warn) : loss)
                     .animation(reduceMotion ? nil : .smooth(duration: 0.5), value: context.currentFraction)
             }
         }
-        .accessibilityLabel(context == nil ? "Price range unavailable" : context?.fullRange == true ? "Full range position, always in range" : "\(active ? "In range" : "Out of range or unknown"). Highlighted LP bounds on a wider price axis, with current price marker")
-            .help("Highlighted band: your LP range. Marker: current price. Axis includes 50% extra range width on each side and expands for out-of-range prices.")
+        .accessibilityLabel(context == nil ? "Price range unavailable" : context?.fullRange == true ? "Full range position, always in range" : edge != nil ? "In range, near the \(edge == .lower ? "lower" : "upper") bound. Highlighted LP bounds on a wider price axis, with current price marker" : "\(active ? "In range" : "Out of range or unknown"). Highlighted LP bounds on a wider price axis, with current price marker")
+            .help(edge == nil ? "Highlighted band: your LP range. Marker: current price. Axis includes 50% extra range width on each side and expands for out-of-range prices." : "Highlighted band: your LP range. The amber marker means the current price is near the \(edge == .lower ? "lower" : "upper") bound.")
     }
 }
 struct RefreshControl: View {
@@ -505,7 +513,8 @@ struct DetailView: View {
                     HStack { metric("Pooled", money(p.underlying_value?.value)); Spacer(); metric("Unclaimed", money(p.unclaimed), trailing: true, color: p.unclaimed == nil ? .secondary : gain) }
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(p.inRange ? (p.priceContext?.fullRange == true ? "In range · full range" : "In range") : "Out of range / unknown").foregroundStyle(p.inRange ? gain : loss)
+                            Text(p.inRange ? (p.priceContext?.fullRange == true ? "In range · full range" : p.nearEdge.map { "In range · near \($0 == .lower ? "lower" : "upper") bound" } ?? "In range") : "Out of range / unknown")
+                                .foregroundStyle(p.inRange ? (p.nearEdge == nil ? gain : warn) : loss)
                             Spacer(); Text("\(p.symbol1) / \(p.symbol0)").foregroundStyle(.tertiary)
                         }.font(.system(size: 9))
                         RangeBar(context: p.priceContext, active: p.inRange).frame(height: 15)
@@ -527,13 +536,17 @@ struct DetailView: View {
                         metric("ROI", p.performance?[store.benchmark]?.roi.map { number($0.value) + "%" } ?? "—")
                         Spacer(); metric("Fee APR", p.performance?[store.benchmark]?.fee_apr.map { number($0.value) + "%" } ?? "—", trailing: true)
                     }
-                    Text("\(number(p.age?.value, digits: 1)) days \(p.closed ? "held" : "old") · APR is annualized historical performance.").font(.system(size: 9)).foregroundStyle(.tertiary)
+                    HStack {
+                        metric("Impermanent loss", money(p.performance?[store.benchmark]?.il?.value, signed: true), color: tone(p.performance?[store.benchmark]?.il?.value))
+                        Spacer(); metric("Gas spent", money(p.gasSpentUSD), trailing: true)
+                    }
+                    Text("\(number(p.age?.value, digits: 1)) days \(p.closed ? "held" : "old") · IL and APR use the \(benchmarkLabel(store.benchmark, position: p)) benchmark; APR is annualized historical performance.").font(.system(size: 9)).foregroundStyle(.tertiary)
                     Divider().opacity(0.5)
                     if p.closed {
                         Text("Withdrawn amounts").font(.system(size: 9)).foregroundStyle(.tertiary)
-                        HStack { metric(p.symbol0, number(p.total_withdrawn0?.value, digits: 4)); Spacer(); metric(p.symbol1, number(p.total_withdrawn1?.value, digits: 4), trailing: true) }
+                        HStack { metric(p.symbol0, units(p.total_withdrawn0?.value, digits: 4)); Spacer(); metric(p.symbol1, units(p.total_withdrawn1?.value, digits: 4), trailing: true) }
                     } else {
-                        HStack { metric(p.symbol0, number(p.current_amount0?.value, digits: 4)); Spacer(); metric(p.symbol1, number(p.current_amount1?.value, digits: 4), trailing: true) }
+                        HStack { metric(p.symbol0, units(p.current_amount0?.value, digits: 4)); Spacer(); metric(p.symbol1, units(p.current_amount1?.value, digits: 4), trailing: true) }
                     }
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Pool").font(.system(size: 9)).foregroundStyle(.tertiary)
@@ -555,6 +568,8 @@ struct Onboarding: View {
     @Bindable var store: Store
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var appeared = false
+    @State private var renaming: String?
+    @State private var nameDraft = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -571,15 +586,24 @@ struct Onboarding: View {
                     VStack(alignment: .leading, spacing: 9) {
                         ForEach(store.wallets, id: \.self) { address in
                             HStack(spacing: 8) {
-                                Button { store.selectWallet(address) } label: {
-                                    HStack(spacing: 7) {
-                                        Image(systemName: address.lowercased() == store.wallet.lowercased() ? "checkmark.circle.fill" : "circle").font(.system(size: 10)).foregroundStyle(address.lowercased() == store.wallet.lowercased() ? .primary : .quaternary)
-                                        WalletAvatar(address: address).frame(width: 12, height: 12)
-                                        Text(Store.short(address)).font(.system(size: 10, design: .monospaced))
-                                    }
-                                }.accessibilityLabel("Show wallet \(Store.short(address))").accessibilityAddTraits(address.lowercased() == store.wallet.lowercased() ? .isSelected : [])
-                                Spacer()
-                                IconButton(symbol: "xmark", label: "Remove wallet \(Store.short(address))") { store.removeWallet(address) }.scaleEffect(0.8)
+                                if renaming == address {
+                                    TextField("Wallet name", text: $nameDraft)
+                                        .font(.system(size: 10)).textFieldStyle(.plain).padding(.horizontal, 8).padding(.vertical, 4)
+                                        .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
+                                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(.primary.opacity(0.08), lineWidth: 0.5))
+                                        .onSubmit { store.renameWallet(address, to: nameDraft); renaming = nil }
+                                } else {
+                                    Button { store.selectWallet(address) } label: {
+                                        HStack(spacing: 7) {
+                                            Image(systemName: address.lowercased() == store.wallet.lowercased() ? "checkmark.circle.fill" : "circle").font(.system(size: 10)).foregroundStyle(address.lowercased() == store.wallet.lowercased() ? .primary : .quaternary)
+                                            WalletAvatar(address: address).frame(width: 12, height: 12)
+                                            Text(store.name(for: address)).font(.system(size: 10, design: .monospaced)).lineLimit(1)
+                                        }
+                                    }.accessibilityLabel("Show wallet \(store.name(for: address))").accessibilityAddTraits(address.lowercased() == store.wallet.lowercased() ? .isSelected : [])
+                                    Spacer()
+                                    IconButton(symbol: "pencil", label: "Rename wallet \(store.name(for: address))") { nameDraft = store.name(for: address); renaming = address }.scaleEffect(0.8)
+                                    IconButton(symbol: "xmark", label: "Remove wallet \(store.name(for: address))") { if renaming == address { renaming = nil }; store.removeWallet(address) }.scaleEffect(0.8)
+                                }
                             }.frame(height: 18)
                         }
                         if store.canAddWallet {

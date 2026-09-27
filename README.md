@@ -2,6 +2,10 @@
 
 A native macOS notch prototype for read-only Revert position analytics. SwiftUI interface, AppKit panel, no third-party dependencies. Requires macOS 14+. The included app build targets Apple silicon.
 
+<video src="https://github.com/0xaaiden/poolside/raw/main/docs/poolside-demo.mp4" controls muted playsinline width="720"></video>
+
+[Watch the demo](docs/poolside-demo.mp4) — expand, open a position, switch benchmarks, close. Scripted and recorded by `Tools/Recording/`.
+
 ## Repository layout
 
 - `Sources/Poolside/` — native macOS app.
@@ -9,7 +13,7 @@ A native macOS notch prototype for read-only Revert position analytics. SwiftUI 
 - `dist/` — complete Last Light landing page, fonts, artwork, and beta download.
 - `design/` — design explorations, generation prompts, and source artwork.
 - `docs/` — API and product analysis.
-- `Tools/` and `license.sh` — developer-side Pro key issuing tool (never shipped in the app).
+- `Tools/` and `license.sh` — developer-side Pro key issuing tool (never shipped in the app); `Tools/Recording/` — scripted ScreenCaptureKit demo capture (`bash Tools/Recording/record-demo.sh out.mp4`).
 - `.openai/hosting.json` — existing Sites deployment identity.
 
 The working checkout is `/Users/aiden/Desktop/Poolside`. Both the app and landing-page commit histories are retained.
@@ -52,6 +56,10 @@ Command Line Tools can select an SDK newer than the compiler supports. Both scri
 - Decimal arithmetic, string/number decoding, optional metrics rendered as unavailable.
 - Pooled assets separate from unclaimed fees; lifetime USD and vs-HOLD P&L. Totals are computed once per update; when a position lacks a value the total shows the available sum prefixed with ≈ and explains itself on hover instead of blanking.
 - Position detail, range indicator, source timestamp, stale marker, retry button, preserved in-memory data on failed refresh.
+- Impermanent loss per selected benchmark and lifetime gas spent, from Revert's performance and cash-flow data.
+- Positions earning within 8% of an LP bound warn with an amber marker and "near lower/upper bound" instead of plain green.
+- Privacy mask: the eye button in the dashboard header renders every amount as •••; persisted between launches.
+- Custom wallet labels, edited inline in the wallet step and shown in the header strip, wallet menu and alerts.
 - 60-second polling; 180-second delay following errors; explicit empty and loading states.
 
 ## Prototype boundaries
