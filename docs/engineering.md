@@ -43,3 +43,12 @@ The store uses the Observation framework rather than `ObservableObject`, so the 
 Tracked wallets live in a `WalletBook` persisted under the `wallets` default, with the legacy single `wallet` default kept as the active pointer so older installs migrate on first launch. Addresses are compared case-insensitively and keep the typed casing; each can carry a custom label stored under `walletLabels`. The wallet step of onboarding lists wallets with select, rename and remove controls and an add field; the dashboard title becomes a menu when more than one wallet is tracked. Each wallet's last data is cached in memory, so switching is instant and refreshes in the background. Free tracks one wallet; adding another shows a Pro hint.
 
 Closed positions come from the same endpoint with `active=false`; Revert fills `deposits_value`, `withdrawals_value`, `fees_value` (lifetime collected fees) and `ts` (closing time) for exited rows. The Open / Closed switch above the list swaps the summary to realized P&L, fees collected and total withdrawn, rows show the closing date and withdrawn value, and the detail view shows deposited, withdrawn, collected fees, open and close dates and withdrawn token amounts instead of a range chart. Closed data loads on first view and refreshes with the manual control or when older than five minutes; open positions keep polling. The example wallet includes a bundled `sample-closed.json` with two Aerodrome positions on Base.
+
+## Demo recording
+
+`docs/poolside-demo.mp4` and `docs/poolside-screenshot.png` are captured from the running app, not mocked. `Tools/Recording/record-demo.sh` launches the app with `POOLSIDE_DEMO_FIXTURE`, which makes `Demo.swift` load illustrative positions, skip the network and play a fixed timeline. `Recorder.swift` streams only Poolside's windows from a fixed 640 x 540 pt region under the notch with ScreenCaptureKit, at the display's native 2x scale and 60 fps, so frames never rescale while the panel springs. Each frame keeps its host-clock time, and `Demo.swift` writes the timeline's start to `POOLSIDE_DEMO_CLOCK`, so frames and the rendered pointer line up exactly. `compose.sh` then places the frames 1:1 on a MacBook stage (menu bar, notch, wallpaper, pointer, captions) with the small Remotion project in `Tools/Recording/video` (Node 18+ and pnpm, tooling only; the app has no dependencies).
+
+```sh
+bash Tools/Recording/record-demo.sh   # needs Screen Recording permission
+bash Tools/Recording/compose.sh       # writes docs/poolside-demo.mp4 and docs/poolside-screenshot.png
+```

@@ -15,7 +15,7 @@ private let loss = Color(nsColor: NSColor(name: nil) { appearance in
         ? NSColor(srgbRed: 0.92, green: 0.40, blue: 0.39, alpha: 1)
         : NSColor(srgbRed: 0.61, green: 0.28, blue: 0.24, alpha: 1)
 })
-/// Amber for a position earning but close to an LP bound — between the green in-range and red out.
+/// Amber for a position earning but close to an LP bound: between the green in-range and red out.
 private let warn = Color(nsColor: NSColor(name: nil) { appearance in
     appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         ? NSColor(srgbRed: 0.95, green: 0.74, blue: 0.30, alpha: 1)
@@ -240,7 +240,7 @@ struct Dashboard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 WalletMenu(store: store)
-                if store.entitlements.tier == .pro { ProBadge() }
+                if store.entitlements.tier == .pro, DemoRecording.fixture == nil { ProBadge() }
                 Spacer()
                 RefreshControl(store: store)
                 IconButton(symbol: store.masked ? "eye.slash" : "eye", label: store.masked ? "Show amounts" : "Hide amounts") { store.masked.toggle() }
@@ -261,7 +261,7 @@ struct Dashboard: View {
                 // of the panel spring, so the row count directly sets the cost of opening the panel.
                 LazyVStack(spacing: 0) {
                     if store.showClosed {
-                        if store.closed.isEmpty { empty(loading: store.loadingClosed, text: store.loadingClosed ? "Finding closed positions…" : store.error != nil ? "Closed positions unavailable" : closedReady ? "No closed positions" : "—") }
+                        if store.closed.isEmpty { empty(loading: store.loadingClosed, text: store.loadingClosed ? "Finding closed positions…" : store.error != nil ? "Closed positions unavailable" : closedReady ? "No closed positions" : "-") }
                         ForEach(store.closed) { p in
                             Button { withAnimation(reduceMotion ? nil : motion) { store.selected = p.id } } label: { PositionRow(p: p, benchmark: store.benchmark) }
                         }
@@ -278,19 +278,19 @@ struct Dashboard: View {
     var openSummary: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text(ready ? money(store.pooled) : "—").font(.system(size: 30, weight: .regular)).tracking(-1.1).monospacedDigit()
+                Text(ready ? money(store.pooled) : "-").font(.system(size: 30, weight: .regular)).tracking(-1.1).monospacedDigit()
                     .contentTransition(.numericText()).animation(reduceMotion ? nil : .smooth(duration: 0.35), value: store.pooled)
                     .accessibilityLabel("Pooled assets \(money(store.pooled))")
                     .help(store.pooled.complete ? "" : partialHelp)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Unclaimed").font(.system(size: 9)).foregroundStyle(.tertiary)
-                    Text(ready ? money(store.fees) : "—").foregroundStyle(ready && store.fees.value != nil ? gain : .secondary).font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
+                    Text(ready ? money(store.fees) : "-").foregroundStyle(ready && store.fees.value != nil ? gain : .secondary).font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
                         .help(store.fees.complete ? "" : partialHelp)
                 }
             }
             HStack(spacing: 5) {
-                Text(ready ? money(store.pnl, signed: true) : "—").foregroundStyle(tone(store.pnl.value)).contentTransition(.numericText())
+                Text(ready ? money(store.pnl, signed: true) : "-").foregroundStyle(tone(store.pnl.value)).contentTransition(.numericText())
                     .help(store.pnl.complete ? "" : partialHelp)
                 Text("lifetime").foregroundStyle(.tertiary)
                 Spacer()
@@ -301,19 +301,19 @@ struct Dashboard: View {
     var closedSummary: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text(closedReady ? money(store.realized, signed: true) : "—").font(.system(size: 30, weight: .regular)).tracking(-1.1).monospacedDigit().foregroundStyle(tone(store.realized.value))
+                Text(closedReady ? money(store.realized, signed: true) : "-").font(.system(size: 30, weight: .regular)).tracking(-1.1).monospacedDigit().foregroundStyle(tone(store.realized.value))
                     .contentTransition(.numericText()).animation(reduceMotion ? nil : .smooth(duration: 0.35), value: store.realized)
                     .accessibilityLabel("Realized P&L \(money(store.realized, signed: true))")
                     .help(store.realized.complete ? "" : partialHelp)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Fees collected").font(.system(size: 9)).foregroundStyle(.tertiary)
-                    Text(closedReady ? money(store.closedTotals.collected) : "—").foregroundStyle(closedReady && store.closedTotals.collected.value != nil ? gain : .secondary).font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
+                    Text(closedReady ? money(store.closedTotals.collected) : "-").foregroundStyle(closedReady && store.closedTotals.collected.value != nil ? gain : .secondary).font(.system(size: 13, weight: .medium)).monospacedDigit().contentTransition(.numericText())
                         .help(store.closedTotals.collected.complete ? "" : partialHelp)
                 }
             }
             HStack(spacing: 5) {
-                Text(closedReady ? money(store.closedTotals.withdrawn) : "—").foregroundStyle(.secondary).contentTransition(.numericText())
+                Text(closedReady ? money(store.closedTotals.withdrawn) : "-").foregroundStyle(.secondary).contentTransition(.numericText())
                 Text("withdrawn · realized P&L").foregroundStyle(.tertiary)
                 Spacer()
                 BenchmarkSwitch(store: store, keys: store.portfolioBenchmarks)
@@ -486,7 +486,7 @@ struct DetailView: View {
                 Button { store.selected = nil } label: { HStack(spacing: 5) { Image(systemName: "chevron.left").font(.system(size: 9)); Text("Positions").font(.system(size: 10)) } }.foregroundStyle(.secondary)
                 Spacer()
                 if p.closed { Text("Closed").font(.system(size: 9, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 5).padding(.vertical, 2).background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3)) }
-                Text("#\(p.nft_id.map { String($0.value) } ?? "—")").font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                Text("#\(p.nft_id.map { String($0.value) } ?? "-")").font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
                 RefreshControl(store: store)
             }.padding(.bottom, 18)
             DataNotice(store: store)
@@ -501,14 +501,14 @@ struct DetailView: View {
                         }.font(.system(size: 19, weight: .medium)).tracking(-0.5)
                         HStack(spacing: 5) {
                             ChainIcon(network: p.network)
-                            Text("\(p.network.capitalized) · \(p.exchange == "uniswapv4" ? "Uniswap v4" : p.exchange) · \(p.fee_tier.map { number(Decimal($0.value) / 10000) + "%" } ?? "—")")
+                            Text("\(p.network.capitalized) · \(p.exchange == "uniswapv4" ? "Uniswap v4" : p.exchange) · \(p.fee_tier.map { number(Decimal($0.value) / 10000) + "%" } ?? "-")")
                         }.font(.system(size: 10)).foregroundStyle(.tertiary)
                     }
                     if p.closed {
                         HStack { metric("Deposited", money(p.deposits_value?.value)); Spacer(); metric("Withdrawn", money(p.withdrawals_value?.value), trailing: true) }
                         HStack { metric("Fees collected", money(p.fees_value?.value), color: p.fees_value == nil ? .secondary : gain); Spacer()
-                            metric("Closed", p.closedDate.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "—", trailing: true) }
-                        Text("Opened \(p.openedDate.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "—") · LP bounds \(p.priceContext?.fullRange == true ? "full range" : "\(price(p.price_lower?.value)) – \(price(p.price_upper?.value))")").font(.system(size: 9)).foregroundStyle(.tertiary)
+                            metric("Closed", p.closedDate.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "-", trailing: true) }
+                        Text("Opened \(p.openedDate.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "-") · LP bounds \(p.priceContext?.fullRange == true ? "full range" : "\(price(p.price_lower?.value)) to \(price(p.price_upper?.value))")").font(.system(size: 9)).foregroundStyle(.tertiary)
                     } else {
                     HStack { metric("Pooled", money(p.underlying_value?.value)); Spacer(); metric("Unclaimed", money(p.unclaimed), trailing: true, color: p.unclaimed == nil ? .secondary : gain) }
                     VStack(alignment: .leading, spacing: 8) {
@@ -523,7 +523,7 @@ struct DetailView: View {
                             Spacer(); Text("now \(price(p.pool_price?.value))").foregroundStyle(.primary); Spacer()
                             Text(price(p.priceContext.map { Decimal($0.domainUpper) }))
                         }.font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
-                        Text(p.priceContext?.fullRange == true ? "LP bounds  full range" : "LP bounds  \(price(p.price_lower?.value)) – \(price(p.price_upper?.value))").font(.system(size: 9)).foregroundStyle(gain)
+                        Text(p.priceContext?.fullRange == true ? "LP bounds  full range" : "LP bounds  \(price(p.price_lower?.value)) to \(price(p.price_upper?.value))").font(.system(size: 9)).foregroundStyle(gain)
                     }.padding(.vertical, 3)
                     }
                     Divider().opacity(0.5)
@@ -533,8 +533,8 @@ struct DetailView: View {
                         Spacer(); metric("Pool P&L", money(p.performance?[store.benchmark]?.pool_pnl?.value, signed: true), trailing: true, color: tone(p.performance?[store.benchmark]?.pool_pnl?.value))
                     }
                     HStack {
-                        metric("ROI", p.performance?[store.benchmark]?.roi.map { number($0.value) + "%" } ?? "—")
-                        Spacer(); metric("Fee APR", p.performance?[store.benchmark]?.fee_apr.map { number($0.value) + "%" } ?? "—", trailing: true)
+                        metric("ROI", p.performance?[store.benchmark]?.roi.map { number($0.value) + "%" } ?? "-")
+                        Spacer(); metric("Fee APR", p.performance?[store.benchmark]?.fee_apr.map { number($0.value) + "%" } ?? "-", trailing: true)
                     }
                     HStack {
                         metric("Impermanent loss", money(p.performance?[store.benchmark]?.il?.value, signed: true), color: tone(p.performance?[store.benchmark]?.il?.value))
@@ -555,6 +555,8 @@ struct DetailView: View {
                     Text("Autocompounding \(p.autocompounding.map { $0.value ? "on" : "off" } ?? "unknown")").font(.system(size: 9)).foregroundStyle(.tertiary)
                 }.padding(.bottom, 10)
             }.scrollIndicators(.hidden)
+                // Content that continues below the fold fades out instead of being cut mid-line.
+                .mask(VStack(spacing: 0) { Color.black; LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 28) })
         }.padding(20)
     }
     func metric(_ label: String, _ value: String, trailing: Bool = false, color: Color = .primary) -> some View {

@@ -253,7 +253,7 @@ struct Position: Decodable, Identifiable, Sendable {
         return min(1, max(0, NSDecimalNumber(decimal: (p - l) / (u - l)).doubleValue))
     }
     enum Edge: String, Sendable, Equatable { case lower, upper }
-    /// Within 8% of an LP bound while in range — the position earns but is close to falling out.
+    /// Within 8% of an LP bound while in range: the position earns but is close to falling out.
     /// Full-range positions have no meaningful edge, and a missing range is never flagged.
     var nearEdge: Edge? {
         guard inRange, priceContext?.fullRange == false, let f = rangeFraction else { return nil }
@@ -522,23 +522,23 @@ private final class Formatters: @unchecked Sendable {
     }
 }
 func number(_ value: Decimal?, digits: Int = 2) -> String {
-    guard let value else { return "—" }
-    return Formatters.shared.decimal(digits: digits).string(from: NSDecimalNumber(decimal: value)) ?? "—"
+    guard let value else { return "-" }
+    return Formatters.shared.decimal(digits: digits).string(from: NSDecimalNumber(decimal: value)) ?? "-"
 }
 /// Prices beyond any plausible token value come from full-range tick limits; print them as ∞ rather
 /// than a forty-digit number.
 func price(_ value: Decimal?, digits: Int = 3) -> String {
-    guard let value else { return "—" }
+    guard let value else { return "-" }
     if value >= Decimal(string: "1e30")! { return "∞" }
     return number(value, digits: digits)
 }
-/// Privacy mask. When on, formatted money and unit amounts render as ••• everywhere they appear —
+/// Privacy mask. When on, formatted money and unit amounts render as ••• everywhere they appear:
 /// the panel, notifications and accessibility labels all pass through these helpers.
 enum DisplayMask {
     nonisolated(unsafe) static var on = false
 }
 func money(_ value: Decimal?, signed: Bool = false) -> String {
-    guard let value else { return "—" }
+    guard let value else { return "-" }
     if DisplayMask.on { return "•••" }
     return (value < 0 ? "−" : signed && value > 0 ? "+" : "") + "$" + number(abs(value))
 }
@@ -548,7 +548,7 @@ func money(_ sum: Sum, signed: Bool = false) -> String {
 }
 /// Token unit amounts. Balances hide under the mask like money; prices and percentages never do.
 func units(_ value: Decimal?, digits: Int = 4) -> String {
-    guard let value else { return "—" }
+    guard let value else { return "-" }
     if DisplayMask.on { return "•••" }
     return number(value, digits: digits)
 }

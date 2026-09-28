@@ -1,0 +1,20 @@
+{
+  "name": "poolside-demo-video",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "studio": "remotion studio",
+    "demo": "remotion render PoolsideDemo ../../../docs/poolside-demo.mp4 --codec h264 --crf 18 --pixel-format yuv420p",
+    "shot": "remotion still PoolsideShot ../../../docs/poolside-screenshot.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

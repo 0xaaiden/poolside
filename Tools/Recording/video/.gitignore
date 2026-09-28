@@ -1,0 +1,4 @@
+node_modules
+public/frames
+public/backdrop.webp
+src/frames.gen.ts

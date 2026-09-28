@@ -1,82 +1,102 @@
 import AppKit
-import CoreGraphics
+import CoreMedia
+import CoreVideo
+import ImageIO
 import ScreenCaptureKit
+import UniformTypeIdentifiers
 
-/// Grabs window-only frames of the Poolside panel at a fixed rate until the app quits or the time
-/// limit passes. Usage: recorder <frames-dir> <fps> <max-seconds>
-// ScreenCaptureKit needs a WindowServer connection; NSApplication.shared creates it.
-_ = NSApplication.shared
+/// Records the Poolside panel as a continuous 60 fps ScreenCaptureKit stream.
+///
+/// The filter includes only Poolside's windows on the built-in display, so the menu bar, wallpaper
+/// and every other app are excluded and the panel arrives on a transparent canvas. The source rect is
+/// a fixed region centered under the notch, captured at the display's native pixel scale, so frames
+/// never rescale while the panel springs open. Each complete frame is written as a PNG with its
+/// host-clock presentation time, which Demo.swift's POOLSIDE_DEMO_CLOCK file aligns to the timeline.
+///
+/// Usage: recorder <frames-dir> <max-seconds> [region-width-pt] [region-height-pt]
+_ = NSApplication.shared // ScreenCaptureKit needs a WindowServer connection.
 let args = CommandLine.arguments
-guard args.count == 4, let fps = Double(args[2]), let limit = Double(args[3]) else { print("usage: recorder <dir> <fps> <seconds>"); exit(2) }
+guard args.count >= 3, let limit = Double(args[2]) else { print("usage: recorder <dir> <seconds> [w-pt] [h-pt]"); exit(2) }
 let dir = URL(fileURLWithPath: args[1])
+let regionW = args.count > 3 ? Double(args[3]) ?? 640 : 640
+let regionH = args.count > 4 ? Double(args[4]) ?? 540 : 540
 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
 func poolsidePID() -> pid_t? { NSRunningApplication.runningApplications(withBundleIdentifier: "local.luma.lp.prototype").first?.processIdentifier }
-/// The statusBar-level panel is the app's largest on-screen window; the menu-bar item is tiny.
-func panelWindow(for pid: pid_t) async -> SCWindow? {
-    guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) else { return nil }
-    return content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen }.max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
-}
-/// A zero output size keeps the capture at the window's native pixel size as it resizes.
-func capture(_ filter: SCContentFilter) -> CGImage? {
-    let config = SCStreamConfiguration()
-    config.showsCursor = false
-    config.ignoreShadowsSingleWindow = true
-    let semaphore = DispatchSemaphore(value: 0)
-    nonisolated(unsafe) var image: CGImage?
-    Task {
-        image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        semaphore.signal()
-    }
-    semaphore.wait()
-    return image
-}
-/// Single-window captures arrive on a display-sized transparent canvas; trim to the panel itself.
-func cropped(_ image: CGImage) -> CGImage? {
-    switch image.alphaInfo {
-    case .none, .noneSkipLast, .noneSkipFirst: return image
-    default: break
-    }
-    guard let data = image.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return image }
-    let w = image.width, h = image.height, bpr = image.bytesPerRow, bpp = image.bitsPerPixel / 8
-    let alphaFirst = [.premultipliedFirst, .first, .noneSkipFirst].contains(image.alphaInfo)
-    let ai = alphaFirst ? 0 : bpp - 1
-    var minX = w, minY = h, maxX = -1, maxY = -1
-    for y in 0..<h {
-        for x in 0..<w where bytes[y * bpr + x * bpp + ai] > 8 {
-            if x < minX { minX = x }; if x > maxX { maxX = x }
-            if y < minY { minY = y }; if y > maxY { maxY = y }
+
+final class FrameWriter: NSObject, SCStreamOutput {
+    let queue = DispatchQueue(label: "poolside.recorder.write", qos: .userInitiated)
+    let dir: URL
+    private var index = 0
+    private var lines: [(Int, Double)] = []
+    init(dir: URL) { self.dir = dir }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer buffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        guard type == .screen, buffer.isValid,
+              let attachments = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+              let raw = attachments.first?[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete,
+              let pixels = CMSampleBufferGetImageBuffer(buffer) else { return }
+        let time = CMSampleBufferGetPresentationTimeStamp(buffer).seconds
+        CVPixelBufferLockBaseAddress(pixels, .readOnly)
+        let w = CVPixelBufferGetWidth(pixels), h = CVPixelBufferGetHeight(pixels), bpr = CVPixelBufferGetBytesPerRow(pixels)
+        let data = Data(bytes: CVPixelBufferGetBaseAddress(pixels)!, count: bpr * h)
+        CVPixelBufferUnlockBaseAddress(pixels, .readOnly)
+        let i = index; index += 1
+        queue.async { [self] in
+            guard let provider = CGDataProvider(data: data as CFData),
+                  let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: bpr, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+                                      provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else { return }
+            let url = dir.appendingPathComponent(String(format: "f%05d.png", i))
+            guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, image, nil)
+            CGImageDestinationFinalize(dest)
+            lines.append((i, time))
         }
     }
-    guard maxX >= minX, maxY >= minY else { return nil }
-    return image.cropping(to: CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1))
+    func finish() -> Int {
+        queue.sync {
+            try? lines.sorted { $0.0 < $1.0 }.map { String(format: "%d %.6f", $0.0, $0.1) }
+                .joined(separator: "\n").write(to: dir.appendingPathComponent("timings.txt"), atomically: true, encoding: .utf8)
+            return lines.count
+        }
+    }
 }
 
-// Wait for the app and its panel.
-var deadline = Date().addingTimeInterval(15)
-var pid: pid_t? = nil, window: SCWindow? = nil
-while Date() < deadline {
-    if let p = poolsidePID(), let w = await panelWindow(for: p) { pid = p; window = w; break }
-    try? await Task.sleep(for: .milliseconds(50))
+// Wait for the app to put its panel on screen.
+var deadline = Date().addingTimeInterval(20)
+var target: (SCRunningApplication, SCDisplay)?
+while Date() < deadline, target == nil {
+    if let pid = poolsidePID(), let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true),
+       let app = content.applications.first(where: { $0.processID == pid }),
+       content.windows.contains(where: { $0.owningApplication?.processID == pid && $0.isOnScreen && $0.frame.width > 100 }),
+       let display = content.displays.first(where: { CGDisplayIsBuiltin($0.displayID) != 0 }) ?? content.displays.first {
+        target = (app, display)
+    } else {
+        try? await Task.sleep(for: .milliseconds(40))
+    }
 }
-guard let pid, var window else { print("no Poolside panel found"); exit(1) }
-print("recording panel of pid \(pid) at \(fps) fps")
-let interval = 1.0 / fps
+guard let (app, display) = target else { print("no Poolside panel found"); exit(1) }
+
+let filter = SCContentFilter(display: display, including: [app], exceptingWindows: [])
+let scale = Double(filter.pointPixelScale)
+let config = SCStreamConfiguration()
+config.sourceRect = CGRect(x: Double(display.width) / 2 - regionW / 2, y: 0, width: regionW, height: regionH)
+config.width = Int(regionW * scale)
+config.height = Int(regionH * scale)
+config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+config.pixelFormat = kCVPixelFormatType_32BGRA
+config.colorSpaceName = CGColorSpace.sRGB
+config.backgroundColor = .clear
+config.showsCursor = false
+config.queueDepth = 8
+
+let writer = FrameWriter(dir: dir)
+let stream = SCStream(filter: filter, configuration: config, delegate: nil)
+try stream.addStreamOutput(writer, type: .screen, sampleHandlerQueue: DispatchQueue(label: "poolside.recorder.capture", qos: .userInteractive))
+try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in stream.startCapture { e in if let e { c.resume(throwing: e) } else { c.resume() } } }
+print("recording \(config.width)x\(config.height) px (\(scale)x) of display \(display.displayID) at 60 fps")
 let start = Date()
-var index = 0
-var timings: [String] = []
-while Date().timeIntervalSince(start) < limit {
-    let t = Date().timeIntervalSince(start)
-    if NSRunningApplication(processIdentifier: pid) == nil { print("app quit at \(t)"); break }
-    if let image = capture(SCContentFilter(desktopIndependentWindow: window)), let image = cropped(image) {
-        let rep = NSBitmapImageRep(cgImage: image)
-        try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent(String(format: "f%05d.png", index)))
-        timings.append(String(format: "%.4f %d %d", t, image.width, image.height))
-        index += 1
-    } else if let p = poolsidePID(), let w = await panelWindow(for: p) { window = w }
-    let next = start.addingTimeInterval(Double(index) * interval)
-    let wait = next.timeIntervalSinceNow
-    if wait > 0 { try? await Task.sleep(for: .milliseconds(wait * 1000)) }
-}
-try? timings.joined(separator: "\n").write(to: dir.appendingPathComponent("timings.txt"), atomically: true, encoding: .utf8)
-print("saved \(index) frames")
+while Date().timeIntervalSince(start) < limit, poolsidePID() != nil { try? await Task.sleep(for: .milliseconds(50)) }
+await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in stream.stopCapture { _ in c.resume() } }
+print("saved \(writer.finish()) frames")

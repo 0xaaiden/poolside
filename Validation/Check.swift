@@ -36,7 +36,7 @@ import CryptoKit
         let full = try require(PriceRangeContext(lower: 2.938956807614301e-39, upper: 3.4025678683306347e38, current: 0.25))
         assert(full.fullRange && full.lowerFraction == 0 && full.upperFraction == 1 && full.currentFraction == 0.5)
         assert(price(Decimal(full.domainUpper)) == "∞" && price(Decimal(full.domainLower)) == "0.000")
-        assert(price(Decimal(string: "1234.5678")) == "1,234.568" && price(nil) == "—")
+        assert(price(Decimal(string: "1234.5678")) == "1,234.568" && price(nil) == "-")
         assert(PriceRangeContext(lower: 0, upper: 10, current: 3)!.fullRange)
         assert(!PriceRangeContext(lower: 0.5, upper: 2, current: 1)!.fullRange, "a 4× range is concentrated")
         assert(PriceRangeContext(lower: 1, upper: 1, current: 1) == nil)
@@ -65,8 +65,8 @@ import CryptoKit
         assert(money(Sum(value: 5, complete: false)) == "≈$5.00")
         assert(money(Sum(value: -5, complete: false), signed: true) == "≈−$5.00")
         assert(money(Sum(value: 5, complete: true), signed: true) == "+$5.00")
-        assert(money(Sum(value: nil, complete: false)) == "—")
-        assert(money(nil) == "—")
+        assert(money(Sum(value: nil, complete: false)) == "-")
+        assert(money(nil) == "-")
         // Cached formatters produce the same output on repeated and mixed-precision calls.
         assert(number(Decimal(string: "1234.5")) == "1,234.50")
         assert(number(Decimal(1), digits: 3) == "1.000" && number(Decimal(1), digits: 3) == "1.000")
@@ -210,7 +210,7 @@ import CryptoKit
         // The privacy mask hides money and unit amounts everywhere; missing stays missing, prices are public.
         DisplayMask.on = true
         assert(money(Decimal(5)) == "•••" && money(Sum(value: 5, complete: true), signed: true) == "•••" && units(Decimal(1)) == "•••")
-        assert(money(nil) == "—" && units(nil) == "—" && price(Decimal(5)) == "5.000")
+        assert(money(nil) == "-" && units(nil) == "-" && price(Decimal(5)) == "5.000")
         DisplayMask.on = false
         assert(money(Decimal(5), signed: true) == "+$5.00")
         // Wallet labels: trimmed, capped, case-insensitive, cleared on blank, persisted, dropped on remove.
