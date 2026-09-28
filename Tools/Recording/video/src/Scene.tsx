@@ -112,6 +112,11 @@ const Stage: React.FC<{t: number; cursor: boolean; captions: boolean; height: nu
   );
 };
 
+/** README GIF: the demo cropped to the panel's surroundings so it reads at README width. */
+export const DemoCrop: React.FC = () => {
+  const f = useCurrentFrame();
+  return <Stage t={START + f / 60} cursor captions height={1080} width={1440} />;
+};
 export const Demo: React.FC = () => {
   const f = useCurrentFrame();
   return <Stage t={START + f / 60} cursor captions height={1080} />;

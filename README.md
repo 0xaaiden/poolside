@@ -2,9 +2,9 @@
 
 **LP positions in the Mac notch.** A native macOS app that reads your wallet's liquidity positions from the Revert API: pooled assets, unclaimed fees and lifetime P&L at a glance. SwiftUI + AppKit, zero dependencies, macOS 14+ Apple silicon.
 
-![Poolside: LP positions, fees and P&L in the Mac notch](docs/poolside-screenshot.png)
+[![Poolside demo: hover the notch to open, switch benchmarks, open a position, closed positions, privacy mask, close](docs/poolside-demo.gif)](docs/poolside-demo.mp4)
 
-[Watch the 15s demo](docs/poolside-demo.mp4), recorded from the running app: hover to open, switch benchmarks, open a position, closed positions, privacy mask, close.
+Recorded from the running app. Click the GIF for the full-quality video.
 
 ## Download
 

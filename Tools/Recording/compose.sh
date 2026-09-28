@@ -1,5 +1,5 @@
 #!/bin/bash
-# Composites recorded frames into docs/poolside-demo.mp4 and docs/poolside-screenshot.png.
+# Composites recorded frames into docs/poolside-demo.mp4 and docs/poolside-demo.gif.
 #
 #   bash Tools/Recording/compose.sh [frames-dir]
 #
@@ -20,4 +20,4 @@ PY
 cd video
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 pnpm run demo
-pnpm run shot
+pnpm run gif

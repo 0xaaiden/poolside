@@ -46,9 +46,9 @@ Closed positions come from the same endpoint with `active=false`; Revert fills `
 
 ## Demo recording
 
-`docs/poolside-demo.mp4` and `docs/poolside-screenshot.png` are captured from the running app, not mocked. `Tools/Recording/record-demo.sh` launches the app with `POOLSIDE_DEMO_FIXTURE`, which makes `Demo.swift` load illustrative positions, skip the network and play a fixed timeline. `Recorder.swift` streams only Poolside's windows from a fixed 640 x 540 pt region under the notch with ScreenCaptureKit, at the display's native 2x scale and 60 fps, so frames never rescale while the panel springs. Each frame keeps its host-clock time, and `Demo.swift` writes the timeline's start to `POOLSIDE_DEMO_CLOCK`, so frames and the rendered pointer line up exactly. `compose.sh` then places the frames 1:1 on a MacBook stage (menu bar, notch, wallpaper, pointer, captions) with the small Remotion project in `Tools/Recording/video` (Node 18+ and pnpm, tooling only; the app has no dependencies).
+`docs/poolside-demo.mp4` and the README's `docs/poolside-demo.gif` are captured from the running app, not mocked. `Tools/Recording/record-demo.sh` launches the app with `POOLSIDE_DEMO_FIXTURE`, which makes `Demo.swift` load illustrative positions, skip the network and play a fixed timeline. `Recorder.swift` streams only Poolside's windows from a fixed 640 x 540 pt region under the notch with ScreenCaptureKit, at the display's native 2x scale and 60 fps, so frames never rescale while the panel springs. Each frame keeps its host-clock time, and `Demo.swift` writes the timeline's start to `POOLSIDE_DEMO_CLOCK`, so frames and the rendered pointer line up exactly. `compose.sh` then places the frames 1:1 on a MacBook stage (menu bar, notch, wallpaper, pointer, captions) with the small Remotion project in `Tools/Recording/video` (Node 18+ and pnpm, tooling only; the app has no dependencies).
 
 ```sh
 bash Tools/Recording/record-demo.sh   # needs Screen Recording permission
-bash Tools/Recording/compose.sh       # writes docs/poolside-demo.mp4 and docs/poolside-screenshot.png
+bash Tools/Recording/compose.sh       # writes docs/poolside-demo.mp4 and docs/poolside-demo.gif
 ```
