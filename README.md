@@ -1,52 +1,51 @@
 # Poolside
 
-**LP positions in the Mac notch.** A native macOS app that reads your wallet's liquidity positions from the Revert API: pooled assets, unclaimed fees and lifetime P&L at a glance. SwiftUI + AppKit, zero dependencies, macOS 14+ Apple silicon.
+**Your LP positions, living in your Mac's notch.**
 
-[![Poolside demo: hover the notch to open, switch benchmarks, open a position, closed positions, privacy mask, close](docs/poolside-demo.gif)](docs/poolside-demo.mp4)
+Poolside is a small, native macOS app that keeps an eye on your liquidity positions for you. Glance up to see your P&L, hover the notch to see everything else, and get back to what you were doing.
 
-Recorded from the running app. Click the GIF for the full-quality video.
-
-## Download
-
-Grab the build from [Releases](https://github.com/0xaaiden/poolside/releases). It's ad-hoc signed (not notarized), so on first launch: right-click, then **Open**, or `xattr -d com.apple.quarantine Poolside.app`.
+[![Poolside: hover the notch to open, switch benchmarks, open a position, closed positions, privacy mask, close](docs/poolside-demo.gif)](docs/poolside-demo.mp4)
 
 ## Features
 
-- Lives in the notch: collapsed strip shows wallet + P&L; hover expands, click or `Esc` closes, never stealing keyboard focus.
-- Per-position detail: price range with current-price marker, balances, ROI, fee APR, impermanent loss and gas spent.
-- Amber "near bound" warning when a position is close to falling out of range.
-- Open and closed positions; USD, HOLD, ETH and per-token P&L benchmarks.
-- Custom wallet labels, multi-wallet switching, privacy mask (the `eye` button hides every amount).
-- Polite polling every 60s with stale-data markers and preserved data on failure.
+- **Lives in the notch.** A slim strip shows your wallet and P&L. Hover to roll it open, click or press `Esc` to tuck it away. It never steals focus from the app you're typing in.
+- **All your numbers at a glance.** Pooled assets, unclaimed fees and lifetime P&L across every open position.
+- **A closer look at any position.** Price range with a live marker, balances, ROI, fee APR, impermanent loss and gas spent.
+- **A heads-up before you drift.** Positions turn amber when the price gets close to the edge of their range.
+- **P&L your way.** Compare against USD, holding, ETH, or either token in the pair.
+- **Closed positions too.** Realized P&L, fees collected and what you withdrew.
+- **More than one wallet.** Add a few, give them names, and switch in a click.
+- **Privacy mask.** One tap on the eye hides every amount, handy when you're sharing your screen.
+- **Not just Uniswap.** Works with any LP position Revert tracks, like Uniswap and Aerodrome.
+- **Read-only and private.** Just paste a public address. No wallet connection, no signing, no keys, no tracking.
 
-## Privacy
+## Install
 
-Read-only. The public wallet address goes only to `api.revert.finance`; token icons come from Revert's proxy. No keys, signing, transactions or analytics. Preferences stay in UserDefaults.
+You'll need a Mac with Apple silicon running macOS 14 or later.
 
-## Build
+### Download
+
+1. Grab `Poolside-macOS.zip` from the [latest release](https://github.com/0xaaiden/poolside/releases).
+2. Unzip it and drag **Poolside** into your Applications folder.
+3. The first time, right-click Poolside and choose **Open**. The app isn't notarized by Apple yet, so macOS asks you to confirm once. If it still won't open, run:
+
+   ```sh
+   xattr -d com.apple.quarantine /Applications/Poolside.app
+   ```
+
+4. Look up at your notch, hover it, and paste in a wallet address.
+
+### Build it yourself
+
+If you have the Xcode Command Line Tools (`xcode-select --install`), it's two commands:
 
 ```sh
-bash build.sh      # writes Poolside.app into the parent folder
-bash validate.sh   # model-layer checks (decoding, totals, ranges, motion math)
+git clone https://github.com/0xaaiden/poolside.git
+cd poolside && bash build.sh
 ```
 
-Or open `Package.swift` in Xcode / `swift build`. If Command Line Tools picks an SDK newer than the compiler, `sdk.sh` (sourced by both scripts) probes for a working one; set `POOLSIDE_SDK` to skip probing.
-
-## Repo map
-
-```
-Sources/Poolside/   app: models, Revert client, panel, views
-Validation/         checks exercised by validate.sh
-Tools/              scripted demo recording and compositing (Tools/Recording)
-docs/               API & product analysis, engineering notes, demo media
-```
-
-Engineering details (panel motion, hover gate, icon pipeline, large-wallet tuning): [docs/engineering.md](docs/engineering.md). Revert data contract and product analysis: [docs/API-and-product-analysis.md](docs/API-and-product-analysis.md).
-
-## Status
-
-Prototype: verified against Uniswap v4 and a live v3 position; other protocols decode leniently and skip unreadable rows. No chart history, fiat conversion or transactions yet. See [VALIDATION.md](VALIDATION.md) for what has and hasn't been QA'd.
+That builds `Poolside.app` next to the project folder. Open it and you're set. You can also open `Package.swift` in Xcode.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Third-party attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Poolside is open source under the [MIT License](LICENSE). Use it, fork it, make it yours.
