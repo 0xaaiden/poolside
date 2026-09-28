@@ -78,34 +78,6 @@ struct PanelMotion: Sendable {
     }
 }
 
-/// Event-driven physical-pointer gate. Pointer movement arms or cancels a dwell timer; once the panel
-/// opens, the gate stays closed until the pointer actually leaves, so layout-generated hover events
-/// cannot reopen a dismissed notch. Nothing runs while the cursor is still.
-struct HoverGate {
-    enum Action: Equatable { case none, arm, cancel }
-    private(set) var suppressed = false
-    private(set) var armed = false
-    mutating func dismiss() { suppressed = true; armed = false }
-    mutating func moved(inside: Bool) -> Action {
-        guard inside else {
-            suppressed = false
-            defer { armed = false }
-            return armed ? .cancel : .none
-        }
-        guard !suppressed, !armed else { return .none }
-        armed = true
-        return .arm
-    }
-    /// Dwell elapsed. Opens once if the pointer is still inside, then suppresses until it leaves.
-    mutating func dwellElapsed(inside: Bool) -> Bool {
-        guard armed else { return false }
-        armed = false
-        guard inside else { return false }
-        dismiss()
-        return true
-    }
-}
-
 /// Native port of bpierre/blo's MIT-licensed image/random algorithm. See THIRD_PARTY_NOTICES.md.
 struct WalletIconData: Equatable {
     let pixels: [Int]

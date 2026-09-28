@@ -8,7 +8,7 @@ API decoding is verified against the two supplied Uniswap v4 positions and a liv
 
 ## Compact redesign
 
-The expanded overview is 400 × 332 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 442 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. Pointer tracking is event-driven: a global mouse-moved monitor (no permission required for mouse events) and a local monitor feed a gate that arms a 180 ms dwell timer on entry and cancels it on exit. Nothing runs while the cursor is still. The gate region is the visible collapsed strip plus a few points below it. After a dismissal the gate stays closed until the pointer physically leaves, so resize-generated hover events cannot reopen it.
+The expanded overview is 400 × 332 points on a 32-point menu bar (width adapts to the camera gap). Details expand vertically to 442 points. Borderless rows, a monochrome surface, muted gain/loss accents and a tick-based range graphic with wider price context replace the original large cards. Both camera-side controls are independent accessible buttons. The panel opens on click: the strip toggles expansion, and a local monitor handles clicks inside the body (which take focus) and Escape. No global event monitors or permissions are needed, and nothing runs while the cursor is still.
 
 ## Range context and icons
 
@@ -20,7 +20,7 @@ Token badges appear next to both assets; chain icons sit next to the network. US
 
 The position list is a `LazyVStack`, so a wallet with hundreds of open positions builds only the rows on screen. Each row carries a hover tracking area and tooltips that AppKit re-registers on every frame of the panel spring, so the number of live rows sets the cost of opening the panel. The range graphic is a single `Canvas` draw plus an animatable marker shape instead of about forty views per row. `bash bench.sh <wallet.json>` lays the real dashboard out offscreen and reports timings; for a 303-position wallet the first layout after data went from about 960 ms to under 20 ms and a spring frame from 22 ms to under 1 ms on the development machine.
 
-The dark surface is pure black to join the camera strip. The native window shadow is disabled. Escape handling is local to the panel and requires no global keyboard or Accessibility permission, so it works once the panel has keyboard focus. Focus is taken deliberately and never during a transition: hovering and clicking the header strip leave focus alone, while clicking inside the panel body, the menu-bar Show command, onboarding, or a text field make the panel key. Collapsing never re-orders or hides the window, so the closing motion is a single uninterrupted spring.
+The dark surface is pure black to join the camera strip. The native window shadow is disabled. Escape handling is local to the panel and requires no global keyboard or Accessibility permission, so it works once the panel has keyboard focus. Focus is taken deliberately and never during a transition: clicking the header strip leaves focus alone, while clicking inside the panel body, the menu-bar Show command, onboarding, or a text field make the panel key. Collapsing never re-orders or hides the window, so the closing motion is a single uninterrupted spring.
 
 ## Wallet identity and financial colors
 

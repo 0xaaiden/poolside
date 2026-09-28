@@ -2,13 +2,13 @@
 
 **Your LP positions, living in your Mac's notch.**
 
-Poolside is a small, native macOS app that keeps an eye on your liquidity positions for you. Glance up to see your P&L, hover the notch to see everything else, and get back to what you were doing.
+Poolside is a small, native macOS app that keeps an eye on your liquidity positions for you. Glance up to see your P&L, click the notch to see everything else, and get back to what you were doing.
 
-[![Poolside: hover the notch to open, switch benchmarks, open a position, closed positions, privacy mask, close](docs/poolside-demo.gif)](docs/poolside-demo.mp4)
+[![Poolside: click the notch to open, switch benchmarks, open a position, closed positions, privacy mask, close](docs/poolside-demo.gif)](docs/poolside-demo.mp4)
 
 ## Features
 
-- **Lives in the notch.** A slim strip shows your wallet and P&L. Hover to roll it open, click or press `Esc` to tuck it away. It never steals focus from the app you're typing in.
+- **Lives in the notch.** A slim strip shows your wallet and P&L. Click to roll it open, click again or press `Esc` to tuck it away. It never steals focus from the app you're typing in.
 - **All your numbers at a glance.** Pooled assets, unclaimed fees and lifetime P&L across every open position.
 - **A closer look at any position.** Price range with a live marker, balances, ROI, fee APR, impermanent loss and gas spent.
 - **A heads-up before you drift.** Positions turn amber when the price gets close to the edge of their range.
@@ -33,7 +33,7 @@ You'll need a Mac with Apple silicon running macOS 14 or later.
    xattr -d com.apple.quarantine /Applications/Poolside.app
    ```
 
-4. Look up at your notch, hover it, and paste in a wallet address.
+4. Look up at your notch, click it, and paste in a wallet address.
 
 ### Build it yourself
 

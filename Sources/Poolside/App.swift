@@ -46,7 +46,6 @@ import UserNotifications
         didSet { UserDefaults.standard.set(theme, forKey: "theme") }
     }
     @ObservationIgnored var resize: (() -> Void)?
-    @ObservationIgnored var didDismiss: (() -> Void)?
     @ObservationIgnored var refreshTask: Task<Void, Never>?
     @ObservationIgnored var closedTask: Task<Void, Never>?
     @ObservationIgnored var requestID = UUID()
@@ -86,7 +85,6 @@ import UserNotifications
         return selected != nil ? 410 : 300
     }
     func expand(_ value: Bool) {
-        if !value { didDismiss?() }
         guard expanded != value else { resize?(); return }
         // The window owns expansion. A second SwiftUI layout animation shifts the content.
         var transaction = Transaction(animation: nil)
@@ -272,9 +270,6 @@ final class IslandPanel: NSPanel {
     var hosting: NSHostingView<IslandView>?
     var observers: [NSObjectProtocol] = []
     var monitors: [Any] = []
-    var hoverGate = HoverGate()
-    var hoverDwell: Task<Void, Never>?
-    var hoverRegion = NSRect.zero
     var topHeight: CGFloat = 32
     var motion: PanelMotion?
     var displayLink: CADisplayLink?
@@ -294,18 +289,13 @@ final class IslandPanel: NSPanel {
         // below). The header toggle never changes focus, so closing is a single uninterrupted motion.
         panel.becomesKeyOnlyIfNeeded = true
         store.resize = { [weak self] in self?.layout(animated: true) }
-        store.didDismiss = { [weak self] in self?.hoverGate.dismiss() }
         layout(); panel.orderFrontRegardless()
         if store.onboarding { panel.makeKey() }
-        // Pointer tracking is event-driven. Global monitors cover other apps' windows and need no
-        // permission for mouse events; the local monitor covers the strip itself.
-        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.pointerMoved() }
-        }) { monitors.append(monitor) }
-        if let monitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .keyDown], handler: { [weak self] event in
+        // The strip toggles on click, so no pointer tracking runs at all. The local monitor exists
+        // only for focus-on-body-click and Escape; it needs no global monitors or permissions.
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown], handler: { [weak self] event in
             guard let self else { return event }
             switch event.type {
-            case .mouseMoved: pointerMoved()
             case .leftMouseDown where store.expanded && event.window === panel && event.locationInWindow.y < panel.frame.height - topHeight:
                 if !panel.isKeyWindow { panel.makeKey() }
             case .keyDown where event.keyCode == 53 && store.expanded: store.expand(false); return nil
@@ -331,20 +321,6 @@ final class IslandPanel: NSPanel {
         if !store.onboarding { store.refresh(); store.startPolling() }
         DemoRecording.start(store: store)
     }
-    func pointerMoved() {
-        guard !store.expanded else { return }
-        switch hoverGate.moved(inside: hoverRegion.contains(NSEvent.mouseLocation)) {
-        case .arm:
-            hoverDwell?.cancel()
-            hoverDwell = Task { [weak self] in
-                try? await Task.sleep(for: .milliseconds(180))
-                guard !Task.isCancelled, let self, !store.expanded else { return }
-                if hoverGate.dwellElapsed(inside: hoverRegion.contains(NSEvent.mouseLocation)) { store.expand(true) }
-            }
-        case .cancel: hoverDwell?.cancel()
-        case .none: break
-        }
-    }
     func layout(animated: Bool = false) {
         let top = max(32, screen.safeAreaInsets.top)
         topHeight = top
@@ -352,8 +328,6 @@ final class IslandPanel: NSPanel {
         let expandedWidth = max(400, camera + 160), collapsedWidth = camera + 180
         let bodyHeight = store.bodyHeight
         let size = store.expanded ? CGSize(width: expandedWidth, height: bodyHeight + top) : CGSize(width: collapsedWidth, height: top + 4)
-        // Hover arms over the visible strip plus a few points below it, not the wider expanded header.
-        hoverRegion = NSRect(x: screen.frame.midX - collapsedWidth / 2, y: screen.frame.maxY - top - 8, width: collapsedWidth, height: top + 8)
         if hosting == nil {
             let view = NSHostingView(rootView: IslandView(store: store, cameraWidth: camera, topHeight: top))
             view.sizingOptions = []
@@ -361,7 +335,6 @@ final class IslandPanel: NSPanel {
         } else if !animated {
             hosting?.rootView = IslandView(store: store, cameraWidth: camera, topHeight: top)
         }
-        if store.expanded { hoverDwell?.cancel() }
         let reveal: Double = store.expanded ? 1 : 0
         if animated && !store.reduceMotion {
             let now = CACurrentMediaTime()
@@ -396,7 +369,6 @@ final class IslandPanel: NSPanel {
         if done { stopDisplayLink() }
     }
     func applicationWillTerminate(_ notification: Notification) {
-        hoverDwell?.cancel()
         stopDisplayLink()
         for monitor in monitors { NSEvent.removeMonitor(monitor) }
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
